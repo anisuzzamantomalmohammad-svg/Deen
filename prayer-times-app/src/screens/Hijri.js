@@ -86,7 +86,7 @@ export default function HijriScreen() {
   );
   const st = useMemo(() => streaks(app.data.completedByDay, today), [app.data.completedByDay, today]);
 
-  const cellW = (L.width - L.pad * 2) / 7;
+  const cellW = Math.floor((L.width - L.pad * 2) / 7);
   const cells = [];
   for (let i = 0; i < first.getDay(); i++) cells.push(<View key={`e${i}`} style={{ width: cellW, height: 50 }} />);
   for (let d = 1; d <= days; d++) {
@@ -190,7 +190,9 @@ export default function HijriScreen() {
             </View>
           ))}
         </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>{cells}</View>
+        {Array.from({ length: Math.ceil(cells.length / 7) }, (_, r) => (
+          <View key={r} style={{ flexDirection: 'row' }}>{cells.slice(r * 7, r * 7 + 7)}</View>
+        ))}
       </Animated.View>
 
       {/* Legend */}
