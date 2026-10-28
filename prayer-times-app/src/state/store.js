@@ -24,6 +24,7 @@ export const DEFAULTS = {
   completedSunnahByDay: {},
   qadaCounts: { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 },
   journalByDay: {},
+  fastPlans: {},
   calcMethod: 'Karachi',
   asrMethod: 'Hanafi',
   safetyBuffer: 5,
@@ -276,7 +277,7 @@ export function AppProvider({ children }) {
   /* ---------------- alerts ---------------- */
   const alertKey = [
     hydrated, data.onboarded, todayKey, coords.latitude.toFixed(2), coords.longitude.toFixed(2), coords.timezone, data.calcMethod, data.asrMethod, data.safetyBuffer,
-    data.notificationsEnabled, data.fastingAlerts, data.preReminderMins, JSON.stringify(data.preOff), JSON.stringify(data.adhanOff),
+    data.notificationsEnabled, data.fastingAlerts, data.preReminderMins, JSON.stringify(data.preOff), JSON.stringify(data.adhanOff), JSON.stringify(data.fastPlans),
     data.jumuahReminder, data.kahfReminder, data.moonCheck, data.lang, cal.mode, cal.offset, JSON.stringify(data.hijriOverrides), rawMonths?.key,
   ].join('|');
   useEffect(() => {
