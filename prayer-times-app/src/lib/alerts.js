@@ -74,7 +74,27 @@ export function planAlerts(s, today, cal, nowMs = Date.now()) {
         if (!s.notificationsEnabled && times.Maghrib.getTime() > nowMs) {
           plan.push({ kind: 'fasting', date: times.Maghrib, channel: CHANNEL_PRAYER, title: T('Iftar · {time}', { time: formatTime(times.Maghrib, tz) }), body: T('Time to break your fast.') });
         }
-      } else if (fast) {
+      }
+    }
+
+    // Days the user asked to be reminded to fast (from the day sheet).
+    const planned = (s.fastPlans || {})[day.toDateString()];
+    if (planned && !ramadan) {
+      const seheriEnd = addMinutes(times.Fajr, -(s.safetyBuffer || 0));
+      const prev = computeDay(s.coords, s.calcMethod, s.asrMethod, addDays(day, -1));
+      const eve = addMinutes(prev.Isha, 30);
+      if (eve.getTime() > nowMs) {
+        plan.push({ kind: 'fasting', date: eve, channel: CHANNEL_REMINDER, title: T("You're fasting tomorrow"), body: T('Seheri ends at {time}. Set your alarm.', { time: formatTime(seheriEnd, tz) }) });
+      }
+      const warn = addMinutes(seheriEnd, -30);
+      if (warn.getTime() > nowMs) {
+        plan.push({ kind: 'fasting', date: warn, channel: CHANNEL_PRAYER, title: T('Seheri ends in 30 minutes'), body: T('Finish eating by {time}.', { time: formatTime(seheriEnd, tz) }) });
+      }
+    }
+
+    if (s.fastingAlerts && !ramadan && fast && !planned) {
+      const seheriEnd = addMinutes(times.Fajr, -(s.safetyBuffer || 0));
+      {
         const prev = computeDay(s.coords, s.calcMethod, s.asrMethod, addDays(day, -1));
         const headsUp = addMinutes(prev.Isha, 30);
         if (headsUp.getTime() > nowMs) {
@@ -150,7 +170,7 @@ export async function scheduleAll(s, today, cal) {
       .filter((n) => OUR_KINDS.includes(n?.content?.data?.kind))
       .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier).catch(() => {}))
   );
-  const anyOn = s.notificationsEnabled || s.fastingAlerts || s.jumuahReminder > 0 || (s.kahfReminder && s.kahfReminder !== 'off') || s.moonCheck !== false;
+  const anyOn = Object.keys(s.fastPlans || {}).length > 0 || s.notificationsEnabled || s.fastingAlerts || s.jumuahReminder > 0 || (s.kahfReminder && s.kahfReminder !== 'off') || s.moonCheck !== false;
   if (!anyOn) return 'off';
   const perm = await Notifications.getPermissionsAsync();
   if (perm.status !== 'granted') return 'denied';
