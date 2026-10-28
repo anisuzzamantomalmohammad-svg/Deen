@@ -294,9 +294,13 @@ function DaySheet({ date }) {
         ))}
       </View>
 
-      <SectionLabel>{t('Fasted')}</SectionLabel>
+      <SectionLabel>{isFuture ? t('Fasting') : t('Fasted')}</SectionLabel>
       <Card style={{ paddingVertical: 2 }}>
-        <Row first label={t('Kept a fast this day')} right={<Toggle value={!!j.fasted} disabled={isFuture} onChange={(v) => saveJournal({ fasted: v })} />} />
+        {isFuture ? (
+          <FastPlanRow date={date} />
+        ) : (
+          <Row first label={t('Kept a fast this day')} right={<Toggle value={!!j.fasted} onChange={(v) => saveJournal({ fasted: v })} />} />
+        )}
       </Card>
 
       <SectionLabel>{t('Note')}</SectionLabel>
@@ -496,10 +500,32 @@ function FastDaySheet({ date }) {
         </Card>
       ) : null}
       <Card style={{ marginTop: 12, paddingVertical: 2 }}>
-        <Row first label={t('Kept a fast this day')} right={<Toggle value={!!j.fasted} disabled={isFuture} onChange={(v) => app.setFasted(date, v)} />} />
+        {isFuture ? (
+          <FastPlanRow date={date} />
+        ) : (
+          <Row first label={t('Kept a fast this day')} right={<Toggle value={!!j.fasted} onChange={(v) => app.setFasted(date, v)} />} />
+        )}
       </Card>
     </View>
   );
+}
+
+/* A future day: offer a reminder instead of a "kept" switch. */
+function FastPlanRow({ date }) {
+  const app = useApp();
+  const t = useT();
+  const key = date.toDateString();
+  const on = !!(app.data.fastPlans || {})[key];
+  const toggle = (v) => {
+    app.update((p) => {
+      const next = { ...(p.fastPlans || {}) };
+      if (v) next[key] = true;
+      else delete next[key];
+      return { fastPlans: next };
+    });
+    if (v) app.setToast(app.alertsStatus === 'denied' ? t('Turn on notifications for Deen to get this reminder') : t("We'll remind you the night before"));
+  };
+  return <Row first icon="bell" label={t('Remind me to fast')} sub={t('The night before, and 30 min before Seheri ends')} right={<Toggle value={on} onChange={toggle} />} />;
 }
 
 /* -------------------------- Choice (generic) -------------------------- */
