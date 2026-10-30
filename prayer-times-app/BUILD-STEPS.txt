@@ -1,0 +1,69 @@
+HOW TO BUILD THE DEEN APK
+(about 15-30 minutes, mostly waiting for Expo's servers)
+
+You need: a computer with internet, and a free Expo account.
+
+1. Install Node.js (the "LTS" version) from https://nodejs.org
+2. Create a free account at https://expo.dev/signup
+3. Unzip this folder somewhere easy, e.g. your Desktop.
+4. Open a terminal inside the folder:
+     Windows: open the folder, click the address bar, type  cmd  and press Enter
+     Mac:     right-click the folder > New Terminal at Folder
+5. Run these commands one at a time:
+     npm install
+     npm install -g eas-cli
+     eas login
+     eas init
+     eas build -p android --profile preview
+6. When it asks:
+     "Create an EAS project?" / "Link to project?" -> Yes
+     (eas init writes your project ID into app.json - needed before building)
+     "Generate a new Android Keystore?"      -> Yes
+7. Wait for the build. When it finishes you get a link and a QR code.
+   Open the link on your phone and download the APK.
+8. Tap the APK to install. If Android blocks it, allow
+   "Install unknown apps" for your browser or Files app when prompted.
+9. First launch: allow Location and Notifications.
+
+THIS UPDATE (1.4.0)
+- Copy everything in this folder over prayer-times-app/ in the GitHub repo
+  (keep the folder structure, including the new "plugins" folder), commit
+  and push to main.
+- New package: expo-print (for the timetable PDF). package.json and
+  package-lock.json already include it, so EAS installs it on its own.
+- The home-screen widget is native Android code, added at build time by
+  plugins/withDeenWidget.js (listed in app.json). Nothing to set up.
+- On expo.dev run a new Android build: base directory /prayer-times-app,
+  profile preview, branch main.
+- version and versionCode are 1.4.0 / 6. Install the new APK over the old
+  one; your log, qada and settings carry over.
+- Delete the stray file prayer-times-app/Hijri.js in the repo (the real one
+  is src/screens/Hijri.js).
+
+CHECK ON THE PHONE AFTER INSTALLING
+1. Hijri tab: tap a past day, set a prayer to Qada, pick a reason, Save.
+   The day gets an amber dot and the made-up day gets the amber arrow.
+2. Ibadah tab: the Qada card shows the count; tick one off from the list.
+3. Settings > Tools > Add widget. Check the countdown runs and the gold line
+   moves (every 5 minutes). Resize it wider to see the Hijri/special line.
+4. Settings > Alerts > Check my alerts > Send a test. On the alert, try
+   "Snooze 10 min" with the app closed: it should come back in 10 minutes.
+5. Let 3 alerts arrive: only the newest 2 should stay in the list
+   (this happens when the app opens, when the widget refreshes, or in the
+   background check, so it can lag a little if no widget is placed).
+6. Settings > Appearance > Night mode on. At night, the Home tab shows
+   "Turn off for tonight".
+7. Settings > Backup > Weekly auto backup: pick a folder (e.g. Documents).
+8. Timetable > Share > This month as a PDF.
+
+LATER
+- Next update: raise "version" and "versionCode" in app.json (e.g. 1.0.2
+  and 3), then run the last command from step 5 again.
+  Installing the new APK over the old one keeps your data.
+  Always build from the same Expo account - it holds the signing key, and
+  Android only installs updates signed with the same key.
+- Rename the app: change "name" in app.json.
+- Try it without building: run  npx expo start  and scan the QR code
+  with the Expo Go app.
+- Publishing on Google Play one day: remove "android.permission.USE_EXACT_ALARM"
+  from app.json first (Play only allows it for alarm-clock apps).
