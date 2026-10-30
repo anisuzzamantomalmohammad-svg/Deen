@@ -1,0 +1,65 @@
+HOW TO BUILD THE DEEN APK
+(about 15-30 minutes, mostly waiting for Expo's servers)
+
+You need: a computer with internet, and a free Expo account.
+
+1. Install Node.js (the "LTS" version) from https://nodejs.org
+2. Create a free account at https://expo.dev/signup
+3. Unzip this folder somewhere easy, e.g. your Desktop.
+4. Open a terminal inside the folder:
+     Windows: open the folder, click the address bar, type  cmd  and press Enter
+     Mac:     right-click the folder > New Terminal at Folder
+5. Run these commands one at a time:
+     npm install
+     npm install -g eas-cli
+     eas login
+     eas init
+     eas build -p android --profile preview
+6. When it asks:
+     "Create an EAS project?" / "Link to project?" -> Yes
+     (eas init writes your project ID into app.json - needed before building)
+     "Generate a new Android Keystore?"      -> Yes
+7. Wait for the build. When it finishes you get a link and a QR code.
+   Open the link on your phone and download the APK.
+8. Tap the APK to install. If Android blocks it, allow
+   "Install unknown apps" for your browser or Files app when prompted.
+9. First launch: allow Location and Notifications.
+
+THIS UPDATE (1.5.0)
+- Copy everything in this folder over prayer-times-app/ in the GitHub repo
+  (keep the folder structure), commit and push to main. Leave the docs/
+  folder at the top of the repo as it is: it's the website Google links to.
+- New packages: @react-native-google-signin/google-signin and expo-calendar.
+  package.json and package-lock.json already include them.
+- Google sign-in only works in builds signed with the Expo keystore whose
+  SHA-1 is 03:3D:8B:...:02:F8 (the one added in Google Cloud). EAS uses it
+  automatically. Don't create new build credentials, or sign-in will fail.
+- On expo.dev run a new Android build: base directory /prayer-times-app,
+  profile preview, branch main.
+- version and versionCode are 1.5.0 / 7. Install over the old one; your log
+  and settings carry over.
+
+CHECK ON THE PHONE AFTER INSTALLING
+1. Settings: the "Keep your log safe" card. Tap Sign in with Google, pick
+   your account. The card turns into your name and photo.
+2. Settings > Backup > Back up now. It should say "Backed up to Google Drive".
+   Then Restore from Drive should list that backup.
+3. Settings > Backup > Important days. Allow calendar, pick your Gmail
+   calendar, Add. Open Google Calendar a minute later: Eid, Ramadan etc.
+   should be there.
+4. Hijri tab: new day tiles. Tap the "Hijri" pill to switch to regular dates
+   and back.
+5. If sign-in shows "DEVELOPER_ERROR": the SHA-1 or package name in Google
+   Cloud doesn't match. Send me a screenshot.
+
+LATER
+- Next update: raise "version" and "versionCode" in app.json (e.g. 1.0.2
+  and 3), then run the last command from step 5 again.
+  Installing the new APK over the old one keeps your data.
+  Always build from the same Expo account - it holds the signing key, and
+  Android only installs updates signed with the same key.
+- Rename the app: change "name" in app.json.
+- Try it without building: run  npx expo start  and scan the QR code
+  with the Expo Go app.
+- Publishing on Google Play one day: remove "android.permission.USE_EXACT_ALARM"
+  from app.json first (Play only allows it for alarm-clock apps).

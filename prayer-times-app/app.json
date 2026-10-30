@@ -1,0 +1,90 @@
+{
+  "expo": {
+    "name": "Deen",
+    "slug": "deen",
+    "owner": "anisuzzaman_tamal",
+    "version": "1.5.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "backgroundColor": "#0F2E2A",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.tomal.prayertimes"
+    },
+    "android": {
+      "package": "com.tomal.prayertimes",
+      "versionCode": 7,
+      "icon": "./assets/icon.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/adaptive-monochrome.png",
+        "backgroundColor": "#0F2E2A"
+      },
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon-light.png",
+          "imageWidth": 150,
+          "resizeMode": "contain",
+          "backgroundColor": "#F4ECDD",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#0F2E2A"
+          }
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Used to work out prayer times and the Qibla direction for where you are."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#C9A04E"
+        }
+      ],
+      "expo-font",
+      "expo-background-task",
+      "./plugins/withDeenWidget",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.185405105452-0d86e1nop1f318kl312aquudqi3gcnmu"
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Used to add important Islamic days to your calendar."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1c93c155-f1dc-4d9a-85f8-c8d36367d6fb"
+      }
+    }
+  }
+}
