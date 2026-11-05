@@ -1,0 +1,3 @@
+// Short Quran passages used outside the reader (same text as the reader:
+// Uthmani Arabic, Muhiuddin Khan in Bangla, Saheeh International in English).
+export const JUMUAH_AYAH = {"ar": "يَـٰٓأَيُّهَا ٱلَّذِينَ ءَامَنُوٓاْ إِذَا نُودِيَ لِلصَّلَوٰةِ مِن يَوۡمِ ٱلۡجُمُعَةِ فَٱسۡعَوۡاْ إِلَىٰ ذِكۡرِ ٱللَّهِ وَذَرُواْ ٱلۡبَيۡعَۚ ذَٰلِكُمۡ خَيۡرٞ لَّكُمۡ إِن كُنتُمۡ تَعۡلَمُونَ", "en": "O you who have believed, when [the adhan] is called for the prayer on the day of Jumu'ah [Friday], then proceed to the remembrance of Allah and leave trade. That is better for you, if you only knew", "bn": "মুমিনগণ, জুমআর দিনে যখন নামাযের আযান দেয়া হয়, তখন তোমরা আল্লাহর স্মরণের পানে ত্বরা কর এবং বেচাকেনা বন্ধ কর। এটা তোমাদের জন্যে উত্তম যদি তোমরা বুঝ।", "ref": "62:9"};
