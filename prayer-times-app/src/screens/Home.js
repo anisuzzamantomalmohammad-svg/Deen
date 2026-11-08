@@ -7,7 +7,7 @@ import { useNav } from '../nav';
 import { useTheme, useT, Serif, Body, Label, Arabic, Press, Card, PatternBand, Divider, Tick, NotConfirmed } from '../ui/kit';
 import { Arch, SunArc, MoonPhase } from '../ui/parts';
 import { useNow, useLayout, longDate, hijriLabel, countdownText, mmss, timeStr, shortDuration, HIJRI_MONTHS_AR, hijriMonthName } from '../ui/hooks';
-import { PRAYER_NAMES, PRAYER_AR, addDays, addMinutes, makruhWindows, computeDay, zonedParts } from '../lib/prayer';
+import { PRAYER_NAMES, PRAYER_AR, addDays, addMinutes, makruhWindows, computeDay, zonedParts, timeAdj } from '../lib/prayer';
 import { isHijriBirthday, hijriAge } from '../lib/birthday';
 import { nextMonthBoundary } from '../lib/hijri';
 import { upcomingEvents } from '../lib/events';
@@ -241,7 +241,7 @@ function ArchBlock({ now, width, height }) {
       {a.to ? <Serif bold size={width * 0.165} color={a.amber ? amber : ink} style={{ marginTop: 2 }}>{countdownText(t, a.to - now)}</Serif> : null}
       {fastN ? <Serif bold size={width * 0.1} color={ink} style={{ marginTop: 4 }}>{fastN}</Serif> : null}
       {a.mode === 'current' ? (
-        <Label color={a.amber ? amber : ink} style={{ opacity: a.amber ? 1 : 0.7, marginTop: 2 }} numberOfLines={2}>{`${t('Ends in')} · ${t(a.note)}`}</Label>
+        <Label color={a.amber ? amber : ink} style={{ opacity: a.amber ? 1 : 0.7, marginTop: 2, maxWidth: width * 0.84, textAlign: 'center' }} numberOfLines={2}>{`${t('Ends in')} · ${t(a.note)}`}</Label>
       ) : a.to ? (
         <Label color={ink} style={{ opacity: 0.7, marginTop: 2 }}>{t('At {time}', { time: timeStr(t, a.to, tz) })}</Label>
       ) : null}
@@ -335,7 +335,8 @@ function PrayerRow({ now }) {
             >
               <Press onPress={() => nav.openSheet('prayer', { name, date: day })} scaleTo={0.97} accessibilityLabel={`${label} ${timeStr(t, times[name], tz)}`} style={{ alignSelf: 'stretch', alignItems: 'center', paddingTop: 9 }}>
                 <Label size={7.5} color={isHi ? th.accent : th.muted} numberOfLines={1} adjustsFontSizeToFit style={{ paddingHorizontal: 2 }}>{label}</Label>
-                <Serif bold size={15} numberOfLines={1} adjustsFontSizeToFit color={isHi ? th.accent : th.ink} style={{ marginTop: 3, marginBottom: 4, paddingHorizontal: 3 }}>{timeStr(t, times[name], tz, true)}</Serif>
+                <Serif bold size={15} numberOfLines={1} adjustsFontSizeToFit color={isHi ? th.accent : th.ink} style={{ marginTop: 3, marginBottom: (timeAdj(app.data) || {})[name] ? 0 : 4, paddingHorizontal: 3 }}>{timeStr(t, times[name], tz, true)}</Serif>
+                {(timeAdj(app.data) || {})[name] ? <Body size={8} weight="bold" color={th.accent} style={{ marginTop: -1, marginBottom: 2 }}>{t('adj.')}</Body> : null}
               </Press>
               <Press onPress={() => onCircle(name, st)} hitSlop={6} accessibilityRole="checkbox" accessibilityState={{ checked: st === 'ontime' || st === 'late' }} accessibilityLabel={t('{name} circle', { name: label })} style={{ paddingBottom: 9, paddingTop: 2, paddingHorizontal: 10 }}>
                 <CircleMark state={st} two={two} />
@@ -373,8 +374,8 @@ function NeedsAnswerCard({ now }) {
               <Body size={13.5} weight="semi">{t(x.name)}</Body>
               <Body size={11} color={th.muted}>{t('{day} · ended {time}', { day: word(x.date), time: timeStr(t, x.end, tz, true) })}</Body>
             </View>
-            <View style={{ paddingHorizontal: 11, paddingVertical: 6, borderRadius: 99, backgroundColor: th.accent }}>
-              <Body size={11.5} weight="semi" color={th.cardInk}>{t('Did you pray?')}</Body>
+            <View style={[{ paddingHorizontal: 11, paddingVertical: 6, borderRadius: 99, backgroundColor: th.accent }, th.nightRed && { backgroundColor: 'transparent', borderWidth: 1, borderColor: th.accentLine }]}>
+              <Body size={11.5} weight="semi" color={th.nightRed ? th.accent : th.cardInk}>{t('Did you pray?')}</Body>
             </View>
           </Press>
         </View>
@@ -631,6 +632,8 @@ const RAMADAN_DUAS = DUAS.filter((d) => ['Fasting & Ramadan', 'Forgiveness', 'Qu
 export function isTicked(app, day, item) {
   if (item.tick === 'fast') return !!(app.data.journalByDay[day.toDateString()] || {}).fasted;
   if (item.tick.startsWith('sunnah:')) return app.isSunnahDone(day, item.tick.slice(7));
+  // "Ask Allah for forgiveness 100 times" is the same as the Daily dhikr Astaghfirullah row.
+  if (item.tick === 'today:istighfar') return (((app.data.dhikrByDay || {})[day.toDateString()] || {}).istighfar || 0) >= 100 || !!((app.data.todayTicks || {})[day.toDateString()] || {}).istighfar;
   return !!((app.data.todayTicks || {})[day.toDateString()] || {})[item.tick.slice(6)];
 }
 export function toggleTick(app, day, item) {
@@ -638,6 +641,14 @@ export function toggleTick(app, day, item) {
   if (item.tick.startsWith('sunnah:')) return app.toggleSunnah(day, item.tick.slice(7));
   const k = day.toDateString();
   const id = item.tick.slice(6);
+  if (item.tick === 'today:istighfar') {
+    const on = !isTicked(app, day, item);
+    return app.update((p) => ({
+      dhikrByDay: { ...(p.dhikrByDay || {}), [k]: { ...((p.dhikrByDay || {})[k] || {}), istighfar: on ? 100 : 0 } },
+      todayTicks: { ...(p.todayTicks || {}), [k]: { ...((p.todayTicks || {})[k] || {}), istighfar: on } },
+      dirtyAt: Date.now(),
+    }));
+  }
   return app.update((p) => ({ todayTicks: { ...(p.todayTicks || {}), [k]: { ...((p.todayTicks || {})[k] || {}), [id]: !((p.todayTicks || {})[k] || {})[id] } }, dirtyAt: Date.now() }));
 }
 
@@ -700,7 +711,7 @@ function TodayCard({ now }) {
       <Card active style={[{ marginTop: 14, padding: 14 }, odd && { borderColor: th.accent, backgroundColor: th.accentSoft }]}>
         <Label size={8} color={odd ? th.accent : th.muted}>{odd ? t('Night {n} · Laylat al-Qadr may be tonight', { n }) : t('Tonight · night {n} of Ramadan', { n })}</Label>
         <TickRow done={tar} label={t('Taraweeh')} sub={t('Bukhari 2009')} onPress={() => toggle('taraweeh')} />
-        <TickRow done={juz} label={t('Juz {n}', { n: Math.min(30, n) })} sub={t('{n} of 30 juz read', { n: juzDone })} onPress={() => toggle('quranJuz')} bar={juzDone / 30} />
+        <TickRow done={juz} label={t('Part {n}', { n: Math.min(30, n) })} sub={t('{n} of 30 parts read', { n: juzDone })} onPress={() => toggle('quranJuz')} bar={juzDone / 30} />
         {odd ? (
           <Press onPress={() => nav.push('dua', { id: QADR_DUA.id })} style={{ marginTop: 10, borderTopWidth: 1, borderColor: th.line, paddingTop: 10 }}>
             <Arabic size={19} style={{ textAlign: 'right' }}>{QADR_DUA.arabic}</Arabic>

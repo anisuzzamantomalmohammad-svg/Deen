@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useApp } from '../state/store';
 import { HScroll } from '../ui/swipe';
 import { useNav } from '../nav';
-import { useTheme, useT, Serif, Body, Label, Arabic, IconBtn, Chip, Segmented } from '../ui/kit';
+import { useTheme, useT, Serif, Body, Label, Arabic, IconBtn, Chip, Segmented, Press } from '../ui/kit';
 import { useLayout } from '../ui/hooks';
 import { Stepper } from '../ui/parts';
 
@@ -90,7 +90,6 @@ export default function TasbihScreen() {
       <View style={{ paddingTop: L.insets.top + 12, paddingHorizontal: L.pad, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <IconBtn name="chevron-left" onPress={nav.pop} label={t('Back')} />
         <Serif size={22} style={{ flex: 1 }}>{t('Tasbih')}</Serif>
-        <IconBtn name="rotate-ccw" onPress={reset} label={t('Reset')} />
       </View>
       <View style={{ marginTop: 14 }}>
         <HScroll style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: L.pad, paddingRight: L.pad + 26 }}>
@@ -132,6 +131,11 @@ export default function TasbihScreen() {
         </Animated.View>
         <Body size={12} color={th.muted} style={{ marginTop: 16 }}>{t('Tap anywhere to count')}</Body>
       </Pressable>
+      {/* Reset sits under the counter, easy to reach with a thumb. */}
+      <Press onPress={reset} disabled={!count} accessibilityLabel={t('Reset')} style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 22, paddingVertical: 11, borderRadius: 99, borderWidth: 1, borderColor: count ? th.accentLine : th.line, backgroundColor: count ? th.accentSoft : 'transparent', marginBottom: 14, opacity: count ? 1 : 0.5 }}>
+        <Feather name="rotate-ccw" size={16} color={count ? th.accent : th.faint} />
+        <Body size={14} weight="semi" color={count ? th.accent : th.faint}>{t('Reset')}</Body>
+      </Press>
 
       <View style={{ paddingHorizontal: L.pad, paddingBottom: L.insets.bottom + 18 }}>
         <Label style={{ marginBottom: 8 }}>{t('Target')}</Label>

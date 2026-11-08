@@ -3,6 +3,8 @@ import React, { useMemo, useState } from 'react';
 import { FlatList, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useApp } from '../state/store';
+import { DailyDhikrCard } from './Dhikr';
+import { QuranBody } from './Quran';
 import { HScroll } from '../ui/swipe';
 import { useNav } from '../nav';
 import { useTheme, useT, Serif, Body, Label, Card, Press, Arabic, Segmented, Chip, Input, Tick, SectionLabel, Empty, Row } from '../ui/kit';
@@ -90,6 +92,7 @@ function DailyView() {
         ))}
       </Card>
 
+      <DailyDhikrCard />
       <JumuahTracker />
 
       {/* Qada: the newest 3 prayers still to answer, then one card for everything else. */}
@@ -200,7 +203,7 @@ function GuidesView() {
       const dt = duaText(d, t.lang);
       if (has(d.title, d.translation, d.transliteration, d.category, dt.title, dt.translation)) out.push({ kind: t('Dua'), icon: 'star', title: dt.title, go: () => nav.push('dua', { id: d.id }) });
     });
-    SURAHS.forEach((x) => { if (has(x.name, x.nameBn, x.meaning, ...x.verses.map((v) => v.en), ...x.verses.map((v) => v.bn))) out.push({ kind: t('Surah'), icon: 'book', title: lang === 'bn' ? x.nameBn : x.name, go: () => nav.push('surahs', { n: x.n }) }); });
+    SURAHS.forEach((x) => { if (has(x.name, x.nameBn, x.meaning, ...x.verses.map((v) => v.en), ...x.verses.map((v) => v.bn))) out.push({ kind: t('Chapter'), icon: 'book', title: lang === 'bn' ? x.nameBn : x.name, go: () => nav.push('surahs', { n: x.n }) }); });
     SETTINGS_INDEX.forEach(([label, target, words]) => {
       if (has(label, translate('bn', label), words)) {
         out.push({ kind: t('Setting'), icon: 'settings', title: t(label), go: () => goSetting(nav, app, t, target) });
@@ -210,7 +213,7 @@ function GuidesView() {
   }, [term, t.lang]);
   return (
     <View>
-      <Input value={q} onChangeText={setQ} placeholder={t('Search duas, guides, surahs, settings')} autoCorrect={false} returnKeyType="search" style={{ marginTop: 14 }} />
+      <Input value={q} onChangeText={setQ} placeholder={t('Search duas, guides, chapters, settings')} autoCorrect={false} returnKeyType="search" style={{ marginTop: 14 }} />
       {results ? (
         <Card style={{ paddingVertical: 2, marginTop: 10 }}>
           {results.length ? results.map((r, i) => (
@@ -227,20 +230,6 @@ function GuidesView() {
             </Press>
           )) : <Body size={13} color={th.muted} style={{ padding: 14 }}>{t('Nothing found')}</Body>}
         </Card>
-      ) : null}
-      {!results ? (
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-          {[
-            { id: 'quran', ar: 'القرآن', label: t('Quran'), sub: (app.data.quran || {}).last ? t('Continue reading') : t('Bangla and English') },
-            { id: 'names', ar: 'الأسماء', label: t('99 Names'), sub: t('{n} of 99 learnt', { n: Object.values(app.data.namesLearnt || {}).filter(Boolean).length }) },
-          ].map((x) => (
-            <Card key={x.id} active onPress={() => (x.id === 'quran' && (app.data.quran || {}).last ? nav.push('quran', { surah: app.data.quran.last.s, ayah: app.data.quran.last.a }) : nav.push(x.id))} style={{ flex: 1, padding: 12 }}>
-              <Arabic size={20} color={th.accent} style={{ lineHeight: 36, textAlign: 'left' }}>{x.ar}</Arabic>
-              <Body size={14} weight="semi">{x.label}</Body>
-              <Body size={11} color={th.muted} numberOfLines={1}>{x.sub}</Body>
-            </Card>
-          ))}
-        </View>
       ) : null}
       {results ? null : GUIDE_GROUPS.map((gr) => (
         <View key={gr.id}>
@@ -269,7 +258,7 @@ function GuidesView() {
                     <Feather name="book" size={14} color={th.accent} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Body size={14} weight="med">{t('Surahs for salah')}</Body>
+                    <Body size={14} weight="med">{t('Chapters for salah')}</Body>
                     <Body size={11.5} color={th.muted}>{t('{n} of {m} memorised', { n: learned, m: SURAHS.length })}</Body>
                   </View>
                   <Feather name="chevron-right" size={16} color={th.faint} />
@@ -362,10 +351,11 @@ export default function IbadahScreen() {
         style={{ marginTop: 10 }}
         value={tab}
         onChange={(v) => { app.haptic(); setTab(v); }}
-        options={[{ id: 'daily', label: t('Daily') }, { id: 'duas', label: t('Duas') }, { id: 'guides', label: t('Guides') }]}
+        options={[{ id: 'daily', label: t('Daily') }, { id: 'duas', label: t('Duas') }, { id: 'quran', label: t('Quran') }, { id: 'guides', label: t('Guides') }]}
       />
       {tab === 'daily' ? <DailyView /> : null}
       {tab === 'guides' ? <GuidesView /> : null}
+      {tab === 'quran' ? <QuranBody /> : null}
       {tab === 'duas' ? (
         <View style={{ marginTop: 14 }}>
           <Input value={q} onChangeText={setQ} placeholder={t('Search {n} duas (e.g. sleep, travel, rain)', { n: DUAS.length })} autoCorrect={false} returnKeyType="search" />

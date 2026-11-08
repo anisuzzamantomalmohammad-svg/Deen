@@ -29,6 +29,7 @@ import { FEELINGS } from '../data/feelings';
 import { KALIMAS } from '../data/kalimas';
 import { kalimaText } from '../data/kalimaText';
 import { SETTINGS_INDEX, goSetting } from './Settings';
+import { feedbackReady } from '../lib/feedback';
 
 const QSURAHS = require('../data/quran/surahs.json'); // [n, ar, translit, en, bn, type, verses]
 
@@ -75,7 +76,6 @@ const GROUPS = [
   G('thank|thanks|grateful|gratitude|shukr|alhamdulillah|কৃতজ্ঞ|শুকরিয়া', [['feel', 'grateful']]),
   G('qibla|qiblah|kibla|kiblah|direction|kaaba|kaba|কিবলা|কাবা', [['ans', 'qibla'], ['set', 'qibla']]),
   G('zakat|zakah|sadaqah|sadaqa|charity|fitrah|fitra|fidya|fidyah|kaffarah|যাকাত|জাকাত|ফিতরা|সদকা|দান|ফিদিয়া', [['set', 'charity'], ['guide', 'kaffarah']]),
-  G('mosque|mosques|masjid|masjids|মসজিদ', [['set', 'mosques']]),
   G('tasbih|tasbeeh|dhikr|zikr|counter|তাসবিহ|জিকির', [['set', 'tasbih']]),
   G('quran|koran|quraan|recite|কুরআন|কোরআন', [['tool', 'quran']]),
   G('names of allah|99 names|asma|husna|asmaul|আল্লাহর নাম', [['tool', 'names']]),
@@ -87,12 +87,12 @@ const GROUPS = [
   G('hijri|islamic date|arabic date|date today|today date|হিজরি|তারিখ', [['ans', 'hijri']]),
   G('next prayer|next salah|next namaz|পরের নামাজ', [['ans', 'next']]),
   G('witr|qunut|বিতর|কুনুত', [['guide', 'witr']]),
+  G('masbuq|joined late|late for jamaat|late for jamat|missed rakah|missed a rakah|jamaat|jamat|jama‘ah|congregation|জামাত|মাসবুক', [['guide', 'masbuq']]),
   G('wudu|wudhu|ablution|ozu|অজু|ওজু', [['guide', 'wudu'], ['guide', 'breaksWudu']]),
   G('pray|prayer|salah|salat|namaz|how to pray|নামাজ|সালাত', [['guide', 'pray2'], ['guide', 'pray4']], true),
   G('fast|fasting|roza|roja|sawm|রোজা|রোযা', [['guide', 'breaksFast'], ['guide', 'qadaFast']], true),
   G('dead|death|died|funeral|janazah|janaza|জানাজা|মৃত্যু', [['guide', 'janazah']]),
   G('decision|decide|choose|istikhara|ইস্তিখারা', [['guide', 'istikhara']]),
-  G('feedback|suggestion|complaint|bug|problem with the app|মতামত|অভিযোগ', [['set', 'feedback']]),
   G('backup|restore|sync|two phones|google account|ব্যাকআপ|সিঙ্ক', [['set', 'account']]),
 ];
 
@@ -144,13 +144,14 @@ export default function AskScreen() {
       add(t('Kalima'), 'award', kt.title, '', [kt.title, k.transliteration, kalimaText(k, 'en').title].join(' '), () => nav.push('dua', { kalima: k.id }), 2);
     });
     SETTINGS_INDEX.forEach(([label, target, words]) => {
+      if (target === 'tool:feedback' && !feedbackReady()) return; // "Coming soon" isn't an answer
       const ess = target.startsWith('ess:') || target.startsWith('tool:');
       add(ess ? t('Essentials') : t('Setting'), ess ? 'grid' : 'settings', t(label), '', [label, translate('bn', label), words].join(' '), () => goSetting(nav, app, t, target), ess ? 1 : 4);
     });
     add(t('Quran'), 'book', t('Quran reader'), t('The full Quran with Bangla and English'), 'quran koran read recite কুরআন কোরআন', () => nav.push('quran'), 1);
     add(t('Learn'), 'grid', t('99 Names of Allah'), '', '99 names allah asma husna আল্লাহর নাম', () => nav.push('names'), 1);
-    add(t('Ibadah'), 'book', t('Surahs for salah'), t('Short surahs to memorise'), 'surahs salah memorise short সূরা মুখস্থ', () => nav.push('surahs'), 2);
-    QSURAHS.forEach((x) => add(t('Surah'), 'book', `${x[0]}. ${x[2]}`, lang === 'bn' ? x[4] : x[3], `surah sura সূরা ${x[0]} ${x[2]} ${x[3]} ${x[4]}`, () => nav.push('quran', { surah: x[0] }), 3));
+    add(t('Ibadah'), 'book', t('Chapters for salah'), t('Short chapters to memorise'), 'surahs salah memorise short সূরা মুখস্থ', () => nav.push('surahs'), 2);
+    QSURAHS.forEach((x) => add(t('Chapter'), 'book', `${x[0]}. ${x[2]}`, lang === 'bn' ? x[4] : x[3], `surah sura সূরা ${x[0]} ${x[2]} ${x[3]} ${x[4]}`, () => nav.push('quran', { surah: x[0] }), 3));
     NAMES.forEach((x) => add(t('Name of Allah'), 'star', x.tr, x.en, `${x.tr} ${x.en}`, () => nav.push('names', { n: x.n }), 4));
     ISLAMIC_EVENTS.forEach((evt) => {
       const nx = nextOf(evt.id);

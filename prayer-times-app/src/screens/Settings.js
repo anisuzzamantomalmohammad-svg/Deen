@@ -8,10 +8,10 @@ import { Feather } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useApp } from '../state/store';
 import { useNav } from '../nav';
-import { useTheme, useT, Serif, Body, Card, Row, Toggle, Segmented, SectionLabel, Press, Arabic, Input } from '../ui/kit';
+import { useTheme, useT, Serif, Body, Card, Row, Toggle, Segmented, SectionLabel, Press, Arabic, Input, Divider, PrimaryButton } from '../ui/kit';
 import { ScreenTitle, archGeometry } from '../ui/parts';
 import { useLayout, hijriMonthName, timeStr } from '../ui/hooks';
-import { CALC_METHODS } from '../lib/prayer';
+import { CALC_METHODS, computeDay, timeAdj, adjCityKey } from '../lib/prayer';
 import { DARK_PALETTES, LIGHT_PALETTES } from '../theme/palettes';
 import { TIME_PALETTES, SLOTS, SLOT_NAMES, ROYAL, ROYAL_NAMES, paletteById } from '../theme/daily';
 import { exportBackup, pickBackup, pickBackupFolder } from '../lib/backup';
@@ -89,7 +89,7 @@ function ThemePreview() {
 }
 
 export const PAGE_TITLES = {
-  prayer: 'Prayer times', calendar: 'Calendar & dates', appearance: 'Appearance', language: 'Language & text', home: 'Home screen', backup: 'Backup', about: 'About', safar: 'Safar (travelling)',
+  prayer: 'Prayer times', calendar: 'Calendar & dates', appearance: 'Appearance', language: 'Language & text', home: 'Home screen', backup: 'Backup', about: 'About', safar: 'Safar (travelling)', adjust: 'Adjust times', widget: 'Add widget',
 };
 
 /* --------------------------------------------------------------- pages */
@@ -113,8 +113,86 @@ function PrayerPage() {
         icon="clock" label={t('Seheri ends before Fajr')} value={t('{n} min', { n: data.safetyBuffer })}
         onPress={() => nav.openSheet('choice', { title: t('Seheri ends before Fajr'), value: data.safetyBuffer, options: [0, 3, 5, 10, 15].map((n) => ({ id: n, label: n ? t('{n} minutes before', { n }) : t('At Fajr exactly') })), onPick: (v) => update({ safetyBuffer: v }), note: t('A few minutes of margin so you stop eating safely before Fajr.') })}
       />
+      <Row icon="edit-2" label={t('Adjust times')} value={adjCount(data) ? t('{n} changed', { n: adjCount(data) }) : t('Off')} onPress={() => nav.push('settingsPage', { page: 'adjust' })} />
       <Row icon="globe" label={t('Second city')} value={data.secondCityOn && data.secondCity ? t(data.secondCity.name) : t('Off')} onPress={() => nav.openSheet('secondCity')} />
     </Card>
+  );
+}
+
+// How many prayers are moved from their calculated time.
+const adjCount = (data) => Object.values(timeAdj(data) || {}).filter((v) => v).length;
+
+// Move each prayer by a few minutes to match your masjid. This phone only;
+// one set for everywhere, or a set per city if the switch is on.
+const ADJ_NAMES = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+function AdjustPage() {
+  const app = useApp();
+  const th = useTheme();
+  const t = useT();
+  const { data, update } = app;
+  const adj = timeAdj(data) || {};
+  const base = computeDay(app.coords, data.calcMethod, data.asrMethod, app.today);
+  const setAdj = (next) => update((p) => (p.adjPerCity
+    ? { adjByCity: { ...(p.adjByCity || {}), [adjCityKey(p)]: next } }
+    : { timeAdj: next }));
+  const change = (k, d) => {
+    const v = Math.max(-30, Math.min(30, (adj[k] || 0) + d));
+    setAdj({ ...adj, [k]: v });
+  };
+  const fmt = (v) => (v > 0 ? t('+{n} min', { n: v }) : v < 0 ? t('−{n} min', { n: -v }) : t('{n} min', { n: 0 }));
+  return (
+    <View>
+      <Body size={12.5} color={th.muted} style={{ marginTop: 6, lineHeight: 18 }}>{t('Move a prayer by a few minutes to match your masjid’s timetable.')}</Body>
+      <Card style={{ paddingVertical: 2, marginTop: 12 }}>
+        {ADJ_NAMES.map((k, i) => {
+          const v = adj[k] || 0;
+          const after = new Date(base[k].getTime() + v * 60000);
+          return (
+            <View key={k}>
+              {i > 0 && <Divider />}
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14, gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Body size={14} weight="semi" color={v ? th.accent : th.ink}>{t(k)}</Body>
+                  <Body size={11} color={th.faint}>{`${timeStr(t, base[k], app.coords.timezone)} → ${timeStr(t, after, app.coords.timezone)}`}</Body>
+                </View>
+                <Press onPress={() => change(k, -1)} hitSlop={6} accessibilityLabel={t('Earlier')} style={{ width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: v ? th.accentLine : th.line, alignItems: 'center', justifyContent: 'center' }}><Feather name="minus" size={15} color={th.accent} /></Press>
+                <Body size={13} weight="semi" color={v ? th.accent : th.muted} style={{ minWidth: 58, textAlign: 'center' }}>{fmt(v)}</Body>
+                <Press onPress={() => change(k, 1)} hitSlop={6} accessibilityLabel={t('Later')} style={{ width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: v ? th.accentLine : th.line, alignItems: 'center', justifyContent: 'center' }}><Feather name="plus" size={15} color={th.accent} /></Press>
+              </View>
+            </View>
+          );
+        })}
+      </Card>
+      <Body size={11} color={th.faint} style={{ marginTop: 8, lineHeight: 16 }}>{t('Moves the time everywhere: Home, alerts, widgets, timetable and Google Calendar. Seheri and Iftar follow the adjusted Fajr and Maghrib. Kept on this phone only.')}</Body>
+      <Card style={{ paddingVertical: 2, marginTop: 12 }}>
+        <Row first icon="map-pin" label={t('Separate adjustments for each city')} sub={data.adjPerCity ? t('Now: {city}', { city: app.locationName }) : t('Off: one set for everywhere')} right={<Toggle value={!!data.adjPerCity} onChange={(v) => update({ adjPerCity: v })} />} />
+      </Card>
+      {adjCount(data) ? <PrimaryButton ghost style={{ marginTop: 14 }} icon="rotate-ccw" label={t('Reset all to calculated times')} onPress={() => setAdj({})} /> : null}
+    </View>
+  );
+}
+
+// Pick one of the four home-screen widgets.
+const WIDGET_KINDS = [
+  { id: 'glass', icon: 'sidebar', label: 'Glass · all 5 prayers', sub: '4×1 · stretches to 4×2' },
+  { id: 'dots', icon: 'target', label: 'Dots · now and next', sub: '2×2 · tap the circle to tick' },
+  { id: 'fast', icon: 'sunrise', label: 'Seheri & Iftar', sub: '2×2 · the fast, from Seheri to Iftar' },
+  { id: 'card', icon: 'clock', label: 'Countdown card', sub: '2×2 · the next prayer' },
+];
+function WidgetPage() {
+  const app = useApp();
+  const th = useTheme();
+  const t = useT();
+  return (
+    <View>
+      <Body size={12.5} color={th.muted} style={{ marginTop: 6, lineHeight: 18 }}>{t('Pick a widget')}</Body>
+      <Card style={{ paddingVertical: 2, marginTop: 12 }}>
+        {WIDGET_KINDS.map((w, i) => (
+          <Row key={w.id} first={i === 0} icon={w.icon} label={t(w.label)} sub={t(w.sub)} onPress={() => pinWidget(t, w.id).then((m) => m && app.setToast(m))} />
+        ))}
+      </Card>
+      <Body size={11} color={th.faint} style={{ marginTop: 8, lineHeight: 16 }}>{t('Long-press your home screen, tap Widgets, then find Deen.')}</Body>
+    </View>
   );
 }
 
@@ -127,7 +205,7 @@ function CalendarPage() {
   return (
     <View>
       <SectionLabel>{t('Main date on the calendar')}</SectionLabel>
-      <Segmented value={data.calMain === 'regular' ? 'regular' : 'hijri'} onChange={(v) => update({ calMain: v })} options={[{ id: 'hijri', label: t('Hijri') }, { id: 'regular', label: t('Regular') }]} />
+      <Segmented value={data.calMain === 'regular' ? 'regular' : 'hijri'} onChange={(v) => update({ calMain: v, calMainV: 1 })} options={[{ id: 'regular', label: t('Regular') }, { id: 'hijri', label: t('Hijri') }]} />
       <Body size={11} color={th.faint} style={{ marginTop: 6 }}>{data.calMain === 'regular' ? t('Months run 1 to 31, with the Hijri date small under each day.') : t('Months follow the moon, with the regular date small under each day.')}</Body>
       <Card style={{ paddingVertical: 2, marginTop: 12 }}>
         <Row first icon="moon" label={t('Hijri calendar')} value={data.hijriMode === 'ummalqura' ? t('Umm al-Qura') : t('Moon sighting')} onPress={() => nav.push('hijriSettings')} />
@@ -170,7 +248,7 @@ function AppearancePage() {
       <ThemePreview />
       {app.daily ? (
         <Body size={11.5} color={th.muted} style={{ marginTop: 6 }}>
-          {app.daily.royal ? t('Now: {name} for {day}', { name: t(app.daily.palette.name), day: t(ROYAL_NAMES[app.daily.royal]) }) : t('Now: {name}', { name: t(app.daily.palette.name) })}
+          {app.daily.royal ? t('Now: {name} for {day}', { name: t((th.isLight && app.daily.lightPalette ? app.daily.lightPalette : app.daily.palette).name), day: t(ROYAL_NAMES[app.daily.royal]) }) : t('Now: {name}', { name: t((th.isLight && app.daily.lightPalette ? app.daily.lightPalette : app.daily.palette).name) })}
         </Body>
       ) : null}
 
@@ -253,7 +331,7 @@ function AppearancePage() {
 
       <SectionLabel>{t('Night mode')}</SectionLabel>
       <Card style={{ paddingVertical: 2 }}>
-        <Row first icon="moon" label={t('Night mode')} sub={t('Warm amber colours, easy on the eyes in the dark')} right={<Toggle value={!!data.nightOn} onChange={(v) => update({ nightOn: v, nightOffDay: null })} />} />
+        <Row first icon="moon" label={t('Night mode')} sub={t('Dim, calm colours at night, a different one each night')} right={<Toggle value={!!data.nightOn} onChange={(v) => update({ nightOn: v, nightOffDay: null })} />} />
       </Card>
       {data.nightOn ? (
         <>
@@ -480,7 +558,7 @@ export function SettingsPageScreen({ page }) {
   const nav = useNav();
   const t = useT();
   const L = useLayout();
-  const Page = { prayer: PrayerPage, calendar: CalendarPage, appearance: AppearancePage, language: LanguagePage, home: HomePage, backup: BackupPage, about: AboutPage, safar: SafarPage }[page] || AboutPage;
+  const Page = { widget: WidgetPage, adjust: AdjustPage, prayer: PrayerPage, calendar: CalendarPage, appearance: AppearancePage, language: LanguagePage, home: HomePage, backup: BackupPage, about: AboutPage, safar: SafarPage }[page] || AboutPage;
   return (
     <ScrollView contentContainerStyle={{ paddingTop: L.insets.top + 12, paddingHorizontal: L.pad, paddingBottom: L.insets.bottom + 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <ScreenTitle onBack={nav.pop} title={t(PAGE_TITLES[page] || 'Settings')} />
@@ -498,6 +576,7 @@ export const SETTINGS_INDEX = [
   ['Asr time', 'prayer', 'hanafi shafi madhab'],
   ['Seheri ends before Fajr', 'prayer', 'sehri suhoor buffer'],
   ['Second city', 'prayer', 'dhaka family'],
+  ['Adjust times', 'adjust', 'masjid minutes earlier later offset jamaat'],
   ['Alerts', 'alerts', 'notification adhan sound reminder'],
   ['Hijri calendar', 'calendar', 'moon sighting umm al-qura'],
   ['New Hijri day starts at Maghrib', 'calendar', 'sunset date'],
@@ -530,7 +609,6 @@ export const SETTINGS_INDEX = [
   ['Qibla', 'ess:qibla', 'compass direction kaaba'],
   ['Timetable', 'ess:timetable', 'month table monthly'],
   ['Charity', 'ess:charity', 'zakat fitrah fidya kaffarah sadaqah'],
-  ['Mosques near me', 'ess:mosques', 'masjid map nearby'],
   ['Important days', 'ess:importantDays', 'events eid'],
   ['Date converter', 'ess:dateConverter', 'gregorian convert'],
   ['Share times', 'ess:share', 'image picture whatsapp'],
@@ -547,7 +625,6 @@ export function goSetting(nav, app, t, target) {
   if (target === 'location') nav.openSheet('location');
   else if (target === 'alerts') nav.push('alerts');
   else if (target === 'account') nav.openSheet('account');
-  else if (target === 'widget') pinWidget(t).then((m) => m && app.setToast(m));
   else if (target.startsWith('tool:')) nav.push(target.slice(5));
   else if (target.startsWith('sheet:')) nav.openSheet(target.slice(6));
   else if (target.startsWith('ess:')) openEssential(nav, target.slice(4));
@@ -566,7 +643,7 @@ export default function SettingsScreen() {
   const method = CALC_METHODS.find((m) => m.id === data.calcMethod) || CALC_METHODS[0];
   const alertsSub = data.notificationsEnabled ? (data.preReminderMins ? t('On · {n} min before', { n: data.preReminderMins }) : t('On')) : t('Off');
   const lastBackupDays = data.lastBackupAt ? Math.floor((Date.now() - new Date(data.lastBackupAt).getTime()) / 86400000) : null;
-  const colourName = app.daily ? t(app.daily.palette.name) : t((th.isLight ? LIGHT_PALETTES.find((p) => p.id === data.lightPalette) : DARK_PALETTES.find((p) => p.id === data.darkPalette))?.name || '');
+  const colourName = app.daily ? t((th.isLight && app.daily.lightPalette ? app.daily.lightPalette : app.daily.palette).name) : t((th.isLight ? LIGHT_PALETTES.find((p) => p.id === data.lightPalette) : DARK_PALETTES.find((p) => p.id === data.darkPalette))?.name || '');
   const modeName = { dark: t('Dark'), light: t('Light'), auto: t('Auto'), daynight: t('Day & night') }[data.themeMode];
 
   const go = (target) => goSetting(nav, app, t, target);
@@ -605,7 +682,7 @@ export default function SettingsScreen() {
         <>
           <Card style={{ paddingVertical: 2, marginTop: 14 }}>
             <Row first icon="map-pin" label={t('Location')} value={app.locationName} onPress={() => nav.openSheet('location')} />
-            <Row icon="clock" label={t('Prayer times')} value={`${method.id === 'Karachi' ? 'Karachi' : t(method.label)} · ${data.asrMethod === 'Hanafi' ? t('Hanafi') : t('Standard')}`} onPress={() => go('prayer')} />
+            <Row icon="clock" label={t('Prayer times')} value={`${method.id === 'Karachi' ? 'Karachi' : t(method.label)} · ${data.asrMethod === 'Hanafi' ? t('Hanafi') : t('Standard')}${adjCount(data) ? ` · ${t('adjusted')}` : ''}`} onPress={() => go('prayer')} />
             <Row icon="bell" label={t('Alerts')} value={alertsSub} onPress={() => go('alerts')} />
             <Row icon="moon" label={t('Calendar & dates')} value={data.hijriMode === 'ummalqura' ? t('Umm al-Qura') : t('Moon sighting')} onPress={() => go('calendar')} />
             <Row icon="navigation" label={t('Safar (travelling)')} value={data.travelConfirmed ? t('On') : data.safarAsk === 'off' ? t('Off') : t('Ask me')} onPress={() => go('safar')} />

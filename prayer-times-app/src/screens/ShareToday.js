@@ -4,12 +4,15 @@ import { Platform, Share, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { useApp } from '../state/store';
-import { useTheme, useT, Serif, Body, Label, Arabic, PrimaryButton } from '../ui/kit';
+import { useTheme, useT, Serif, Body, Label, Arabic, PrimaryButton, Segmented } from '../ui/kit';
+import { useNav } from '../nav';
 import { longDate, hijriLabel, timeStr } from '../ui/hooks';
 import { PRAYER_NAMES, PRAYER_AR, addMinutes } from '../lib/prayer';
 
-export default function ShareTodaySheet() {
+export default function ShareTodaySheet({ onClose }) {
   const app = useApp();
+  const nav = useNav();
+  const [what, setWhat] = useState('today');
   const th = useTheme();
   const t = useT();
   const ref = useRef(null);
@@ -47,8 +50,27 @@ export default function ShareTodaySheet() {
     setBusy(false);
   };
 
+  // A whole month (prayer times, or Seheri & Iftar for roza) is shared from
+  // the Timetable, which draws the month table.
+  const month = (tab, how) => {
+    if (onClose) onClose();
+    setTimeout(() => nav.push('timetable', { tab, autoShare: how, ramadan: tab === 'fasting' }), 300);
+  };
+  const monthChoices = (tab) => (
+    <View style={{ marginTop: 14, gap: 8 }}>
+      <Body size={12.5} color={th.muted} style={{ textAlign: 'center', marginBottom: 2 }}>
+        {tab === 'fasting' ? t('Ramadan’s Seheri and Iftar times, day by day.') : t('This month’s prayer times, day by day.')}
+      </Body>
+      <PrimaryButton icon="image" label={t('Share as a picture')} onPress={() => month(tab, 'picture')} />
+      <PrimaryButton ghost icon="file-text" label={t('Share as a PDF')} onPress={() => month(tab, 'pdf')} />
+      <PrimaryButton ghost icon="type" label={t('Share as text')} onPress={() => month(tab, 'text')} />
+    </View>
+  );
+  const seg = <Segmented style={{ marginBottom: 12 }} value={what} onChange={setWhat} options={[{ id: 'today', label: t('Today') }, { id: 'month', label: t('This month') }, { id: 'roza', label: t('Roza month') }]} />;
+  if (what !== 'today') return <View>{seg}{monthChoices(what === 'roza' ? 'fasting' : 'prayer')}</View>;
   return (
     <View>
+      {seg}
       <View ref={ref} collapsable={false} style={{ borderRadius: 22, overflow: 'hidden', backgroundColor: th.bg, borderWidth: 1, borderColor: th.accentLine, padding: 18 }}>
         <View style={{ alignItems: 'center' }}>
           <Arabic size={18} color={th.accent} style={{ lineHeight: 28 }}>دِين</Arabic>

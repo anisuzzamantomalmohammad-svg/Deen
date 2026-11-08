@@ -1,5 +1,5 @@
 // Essentials: the Qibla on top, then the everyday tools that used to sit in
-// Settings, the mosque finder, the tasbih and the Learn section.
+// Settings, the tasbih and the Learn section.
 import React from 'react';
 import { ScrollView, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -14,7 +14,6 @@ import { qiblaBearing, compassPoint, distanceToKaabaKm } from '../lib/prayer';
 export const ESSENTIALS = [
   { id: 'timetable', icon: 'grid', label: 'Timetable' },
   { id: 'charity', icon: 'heart', label: 'Charity' },
-  { id: 'mosques', icon: 'map-pin', label: 'Mosques near me' },
   { id: 'importantDays', icon: 'star', label: 'Important days' },
   { id: 'dateConverter', icon: 'repeat', label: 'Date converter' },
   { id: 'share', icon: 'share-2', label: 'Share times' },

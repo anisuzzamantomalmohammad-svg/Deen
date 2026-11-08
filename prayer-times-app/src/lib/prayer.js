@@ -59,12 +59,26 @@ function params(calcMethod, asrMethod) {
 }
 
 // Times for one calendar day at the location. dateObj's local y/m/d is the day.
-export function computeDay(coords, calcMethod, asrMethod, dateObj) {
+// `adj` moves each time by whole minutes ({ Dhuhr: 4, ... }) to match a masjid.
+export function computeDay(coords, calcMethod, asrMethod, dateObj, adj) {
   const pt = new PrayerTimes(new Coordinates(coords.latitude, coords.longitude), dateObj, params(calcMethod, asrMethod));
+  const m = (k, d) => (adj && adj[k] ? new Date(d.getTime() + adj[k] * 60000) : d);
   return {
-    Fajr: pt.fajr, Sunrise: pt.sunrise, Dhuhr: pt.dhuhr, Asr: pt.asr, Maghrib: pt.maghrib, Isha: pt.isha,
+    Fajr: m('Fajr', pt.fajr), Sunrise: m('Sunrise', pt.sunrise), Dhuhr: m('Dhuhr', pt.dhuhr), Asr: m('Asr', pt.asr), Maghrib: m('Maghrib', pt.maghrib), Isha: m('Isha', pt.isha),
   };
 }
+
+// The minute adjustments in use: one set for everywhere, or (if the person
+// turned it on) a set for the city they're in. Kept on this phone only.
+export function timeAdj(s) {
+  if (!s) return null;
+  if (s.adjPerCity) {
+    const key = s.activeLocationId && s.activeLocationId !== 'auto' ? s.activeLocationId : `auto:${(s.lastAuto && s.lastAuto.name) || ''}`;
+    return (s.adjByCity || {})[key] || null;
+  }
+  return s.timeAdj || null;
+}
+export const adjCityKey = (s) => (s.activeLocationId && s.activeLocationId !== 'auto' ? s.activeLocationId : `auto:${(s.lastAuto && s.lastAuto.name) || ''}`);
 
 // Prohibited (makruh) windows. Scholars give these as roughly 15-20 minutes
 // after sunrise, a few minutes around solar noon before Dhuhr, and the time

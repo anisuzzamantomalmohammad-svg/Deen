@@ -4,6 +4,7 @@ import { ScrollView, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNav } from '../nav';
 import { useTheme, useT, Serif, Body, Label, Card, Press } from '../ui/kit';
+import { NotConfirmed } from '../ui/kit';
 import { ScreenTitle } from '../ui/parts';
 import { useLayout } from '../ui/hooks';
 import { guideById, GUIDE_GROUPS } from '../data/guides';
@@ -57,6 +58,7 @@ export default function GuideScreen({ id }) {
       ))}
 
       <Body size={12} weight="semi" color={th.accent} style={{ marginTop: 16 }}>{g.ref[lang]}</Body>
+      {g.unconfirmed ? <NotConfirmed /> : null}
       <Body size={11} color={th.faint} style={{ marginTop: 6 }}>{t('Short steps from Hanafi fiqh. If something applies to your own situation, check with your local imam.')}</Body>
     </ScrollView>
   );

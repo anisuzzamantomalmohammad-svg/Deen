@@ -104,6 +104,15 @@ public class DeenWidgetProvider extends AppWidgetProvider {
           JSONObject sl = slots.getJSONObject(i);
           if (day.equals(sl.optString("curDay")) && sl.optInt("curId") == pid) sl.put("done", true);
         }
+        JSONArray days = data.optJSONArray("days");
+        for (int i = 0; days != null && i < days.length(); i++) {
+          JSONObject dd = days.getJSONObject(i);
+          if (!day.equals(dd.optString("key"))) continue;
+          JSONArray ps = dd.optJSONArray("prayers");
+          for (int j = 0; ps != null && j < ps.length(); j++) {
+            if (ps.getJSONObject(j).optInt("id") == pid) ps.getJSONObject(j).put("done", true);
+          }
+        }
         writeText(new File(c.getFilesDir(), "widget.json"), data.toString());
       }
       try {
@@ -155,8 +164,14 @@ public class DeenWidgetProvider extends AppWidgetProvider {
         // keep the others going
       }
     }
+    int placed = ids.length;
+    long w2 = DeenWidgets.renderAll(context, m, data, now);
+    if (w2 > 0) {
+      placed++;
+      if (w2 < nextWake) nextWake = w2;
+    }
     if (data != null && data.optBoolean("maxTwo", true)) trimNotifications(context);
-    if (ids.length > 0) schedule(context, nextWake);
+    if (placed > 0) schedule(context, nextWake);
   }
 
   private static JSONObject readData(Context context) {
@@ -214,6 +229,12 @@ public class DeenWidgetProvider extends AppWidgetProvider {
     int red = color(colors, "red", "#C0392B");
     int amber = color(colors, "amber", "#C9851F");
     int ok = color(colors, "ok", "#2E8A5E");
+    // Frosted dark glass like the other widgets (night mode's dim palette at night).
+    boolean glassy = data != null && data.optJSONObject("glass") != null;
+    if (glassy) {
+      int[] k = DeenWidgets.colorsAt(data, now);
+      bg = k[0]; ink = k[1]; accent = k[2]; glow = k[2]; ok = k[3]; amber = k[4]; red = k[5];
+    }
 
     JSONObject slot = null;
     long wake = now + FIVE_MIN;
@@ -228,11 +249,12 @@ public class DeenWidgetProvider extends AppWidgetProvider {
 
     if (slot == null) {
       v.setTextViewText(idTitle, text != null ? text.optString("open", "Open Deen") : "Open Deen");
+      v.setTextColor(idTitle, ink);
       v.setViewVisibility(idTimer, View.GONE);
       v.setViewVisibility(idLine, View.GONE);
       v.setViewVisibility(idSpecial, View.GONE);
       v.setViewVisibility(idIftarRow, View.GONE);
-      v.setImageViewBitmap(idBg, drawCard(wPx, hPx, scale, bg, accent, glow, accent, 0f, -1, ok, amber));
+      v.setImageViewBitmap(idBg, drawCard(wPx, hPx, scale, bg, accent, glow, accent, 0f, -1, ok, amber, glassy, ink));
       if (launch != null) v.setOnClickPendingIntent(idTick, PendingIntent.getActivity(context, 0, launch, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
       m.updateAppWidget(id, v);
       return now + FIVE_MIN;
@@ -308,7 +330,7 @@ public class DeenWidgetProvider extends AppWidgetProvider {
       }
     }
 
-    v.setImageViewBitmap(idBg, drawCard(wPx, hPx, scale, bg, lineColor, glow, accent, progress, tickState, ok, amber));
+    v.setImageViewBitmap(idBg, drawCard(wPx, hPx, scale, bg, lineColor, glow, accent, progress, tickState, ok, amber, glassy, ink));
     m.updateAppWidget(id, v);
     return wake;
   }
@@ -318,7 +340,7 @@ public class DeenWidgetProvider extends AppWidgetProvider {
   }
 
   // The card: ivory, faded stars, a soft gold glow, the timer line and the tick.
-  static Bitmap drawCard(int w, int h, float d, int bg, int line, int glow, int accent, float progress, int tickState, int ok, int amber) {
+  static Bitmap drawCard(int w, int h, float d, int bg, int line, int glow, int accent, float progress, int tickState, int ok, int amber, boolean glassy, int ink) {
     Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
     Canvas c = new Canvas(bmp);
     float r = 22 * d;
@@ -328,10 +350,14 @@ public class DeenWidgetProvider extends AppWidgetProvider {
     c.clipPath(clip);
 
     Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-    p.setColor(bg);
-    c.drawRect(box, p);
+    if (glassy) {
+      DeenWidgets.glass(c, w, h, d, bg, ink);
+    } else {
+      p.setColor(bg);
+      c.drawRect(box, p);
+    }
 
-    p.setShader(new RadialGradient(w / 2f, h * 0.38f, Math.max(w, h) * 0.75f, (glow & 0x00FFFFFF) | 0x40000000, glow & 0x00FFFFFF, Shader.TileMode.CLAMP));
+    p.setShader(new RadialGradient(w / 2f, h * 0.38f, Math.max(w, h) * 0.75f, (glow & 0x00FFFFFF) | (glassy ? 0x1C000000 : 0x40000000), glow & 0x00FFFFFF, Shader.TileMode.CLAMP));
     c.drawRect(box, p);
     p.setShader(null);
 
@@ -339,7 +365,7 @@ public class DeenWidgetProvider extends AppWidgetProvider {
     Paint sp = new Paint(Paint.ANTI_ALIAS_FLAG);
     sp.setStyle(Paint.Style.STROKE);
     sp.setStrokeWidth(1 * d);
-    sp.setColor((accent & 0x00FFFFFF) | 0x1F000000);
+    sp.setColor((accent & 0x00FFFFFF) | (glassy ? 0x0A000000 : 0x1F000000));
     float step = 30 * d;
     float s = 8 * d;
     for (float y = step / 2; y < h + s; y += step) {

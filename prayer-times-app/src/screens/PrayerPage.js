@@ -1,6 +1,7 @@
 // The prayer page (a sheet): one time card with the countdown, the bar from
 // start to end and the tick or "Did you pray it?"; then the rak'ahs with a
 // select circle per sunnah / nafl row; Qibla; and this prayer's alerts.
+import { nowDate } from '../lib/clock';
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -314,6 +315,8 @@ export function RakahCard({ name, date }) {
   const rows = rakahRows(name, date, app.data);
   const answered = app.isPrayed(date, name) || !!qadaOf(app.data, date, name);
   const ticks = rakahOf(app.data, date, name);
+  // Nothing can be ticked before the prayer's time starts.
+  const started = app.getDay(date)[name] <= nowDate();
   const safar = !!app.data.travelConfirmed && ['Dhuhr', 'Asr', 'Isha'].includes(name);
   const key = date.toDateString();
   const id = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'].indexOf(name) + 1;
@@ -341,7 +344,7 @@ export function RakahCard({ name, date }) {
                 {fard ? (
                   <View style={{ opacity: 0.6 }}><Tick done={on} size={22} /></View>
                 ) : (
-                  <Press onPress={() => app.setRakah(date, name, r.key, !on)} hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={t(r.label)}>
+                  <Press onPress={() => (started ? app.setRakah(date, name, r.key, !on) : app.setToast(t('You can tick it once it starts.')))} hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked: on, disabled: !started }} accessibilityLabel={t(r.label)} style={started ? null : { opacity: 0.4 }}>
                     <Tick done={on} size={22} />
                   </Press>
                 )}
@@ -356,7 +359,11 @@ export function RakahCard({ name, date }) {
           </>
         ) : null}
       </Card>
-      <Body size={11} color={th.faint} style={{ marginTop: 6 }}>{t('Fard is ticked by the main circle. The strongly recommended sunnah and Witr are ticked with it; tick the others yourself.')}</Body>
+      {qadaOf(app.data, date, name) ? (
+        <Body size={11} color={th.faint} style={{ marginTop: 6 }}>{t('Prayed after its time: only the Fard and Witr are made up, not the sunnah. Fajr’s sunnah is the exception, if made up the same day before midday.')}</Body>
+      ) : (
+  <Body size={11} color={th.faint} style={{ marginTop: 6 }}>{t('Fard is ticked by the main circle. The strongly recommended sunnah and Witr are ticked with it; tick the others yourself.')}</Body>
+      )}
       <NotConfirmed />
     </View>
   );

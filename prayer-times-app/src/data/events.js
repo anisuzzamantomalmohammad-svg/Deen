@@ -170,6 +170,18 @@ export const ISLAMIC_EVENTS = [
     ],
   },
   {
+    id: 'rajab-night',
+    kind: 'night',
+    hijri: { monthIndex: 6, day: 1 },
+    note: 'weak',
+    title: { en: 'First night of Rajab', bn: 'রজবের প্রথম রাত' },
+    line: {
+      en: 'The night before 1 Rajab. Some early scholars counted it among five nights when dua is answered; the report about it is weak.',
+      bn: '১ রজবের আগের রাত। কিছু পূর্ববর্তী আলেম একে দোয়া কবুলের পাঁচ রাতের একটি বলেছেন; এ বিষয়ের বর্ণনাটি দুর্বল।',
+    },
+    todo: { en: ['Make dua, as on any night.', 'No special prayer is set for it.'], bn: ['অন্য যেকোনো রাতের মতো দোয়া করুন।', 'এর জন্য নির্দিষ্ট কোনো নামাজ নেই।'] },
+  },
+  {
     id: 'shab-e-meraj',
     kind: 'night',
     alert: true,
@@ -379,6 +391,18 @@ export const ISLAMIC_EVENTS = [
 
   /* ------------------------------- Shawwal ------------------------------- */
   {
+    id: 'eid-fitr-night',
+    kind: 'night',
+    hijri: { monthIndex: 9, day: 1 },
+    note: 'weak',
+    title: { en: 'Night of Eid al-Fitr (Chand Raat)', bn: 'ঈদুল ফিতরের রাত (চাঁদ রাত)' },
+    line: {
+      en: 'The night before Eid al-Fitr. Hanafi books count reviving the two Eid nights in worship as recommended; the hadith about it is weak.',
+      bn: 'ঈদুল ফিতরের আগের রাত। হানাফি কিতাবে দুই ঈদের রাত ইবাদতে কাটানো মুস্তাহাব বলা হয়েছে; এ বিষয়ের হাদিসটি দুর্বল।',
+    },
+    todo: { en: ['Spend some of the night in prayer, dhikr and dua.', 'Say the takbir from sunset.'], bn: ['রাতের কিছু অংশ নামাজ, জিকির ও দোয়ায় কাটান।', 'সূর্যাস্ত থেকে তাকবির বলুন।'] },
+  },
+  {
     id: 'eid-fitr',
     kind: 'eid',
     alert: true,
@@ -491,6 +515,18 @@ export const ISLAMIC_EVENTS = [
       },
     ],
     todo: { en: ['Fast today if you are not on Hajj.'], bn: ['হজে না থাকলে আজ রোজা রাখুন।'] },
+  },
+  {
+    id: 'eid-adha-night',
+    kind: 'night',
+    hijri: { monthIndex: 11, day: 10 },
+    note: 'weak',
+    title: { en: 'Night of Eid al-Adha', bn: 'ঈদুল আযহার রাত' },
+    line: {
+      en: 'The night before Eid al-Adha. Hanafi books count reviving the two Eid nights in worship as recommended; the hadith about it is weak.',
+      bn: 'ঈদুল আযহার আগের রাত। হানাফি কিতাবে দুই ঈদের রাত ইবাদতে কাটানো মুস্তাহাব বলা হয়েছে; এ বিষয়ের হাদিসটি দুর্বল।',
+    },
+    todo: { en: ['Spend some of the night in prayer, dhikr and dua.', 'Keep saying the Takbir al-Tashreeq after each fard prayer.'], bn: ['রাতের কিছু অংশ নামাজ, জিকির ও দোয়ায় কাটান।', 'প্রতি ফরজ নামাজের পর তাকবিরে তাশরিক বলতে থাকুন।'] },
   },
   {
     id: 'eid-adha',

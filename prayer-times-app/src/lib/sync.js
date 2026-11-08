@@ -9,7 +9,7 @@
 // ticks made on both phones the same day are all kept.
 
 // Fields that sync (and go in the Drive backup).
-export const DAY_PRAYER_FIELDS = ['completedByDay', 'qadaRecords', 'rakahByDay', 'tickAt', 'notPrayed', 'imamByDay'];
+export const DAY_PRAYER_FIELDS = ['completedByDay', 'qadaRecords', 'rakahByDay', 'tickAt', 'notPrayed', 'imamByDay', 'dhikrByDay'];
 export const DAY_FIELDS = ['completedSunnahByDay', 'journalByDay', 'fastPlans', 'trackedDays', 'todayTicks', 'jumuahByDay', 'seheriByDay', 'notFastingByDay', 'safarDays'];
 export const WHOLE_FIELDS = [
   'qadaCounts', 'olderLog', 'qadaLog', 'taraweeh', 'quranJuz', 'missedFasts', 'zakatFitrDone', 'ramadanChecks', 'quran', 'namesLearnt', 'learn',
@@ -22,7 +22,7 @@ export const PER_PHONE = [
   'themeMode', 'darkPalette', 'lightPalette', 'colourMode', 'colourPins', 'nightOn', 'nightWhen', 'nightOffDay', 'lang', 'arabicSize', 'textSize',
   'savedLocations', 'activeLocationId', 'lastAuto', 'homeBase', 'seenCity', 'cityAsked', 'secondCity', 'secondCityOn',
   'google', 'lastDriveBackupAt', 'backupDirUri', 'lastAutoBackupAt', 'syncStamps', 'lastSyncAt', 'lastSyncedDirty', 'handledResponse',
-  'travelConfirmed', 'safar', 'safarDeclined',
+  'travelConfirmed', 'safar', 'safarDeclined', 'timeAdj', 'adjPerCity', 'adjByCity',
 ];
 
 const eq = (a, b) => a === b || JSON.stringify(a) === JSON.stringify(b);

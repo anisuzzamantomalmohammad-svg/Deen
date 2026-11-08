@@ -25,7 +25,7 @@ export default function SurahsScreen({ n: openN }) {
   const toggle = (n) => app.update((p) => ({ surahsLearned: { ...(p.surahsLearned || {}), [n]: !(p.surahsLearned || {})[n] } }));
   return (
     <ScrollView contentContainerStyle={{ paddingTop: L.insets.top + 12, paddingHorizontal: L.pad, paddingBottom: L.insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
-      <ScreenTitle onBack={nav.pop} title={t('Surahs for salah')} sub={t('{n} of {m} memorised', { n: count, m: SURAHS.length })} />
+      <ScreenTitle onBack={nav.pop} title={t('Chapters for salah')} sub={t('{n} of {m} memorised', { n: count, m: SURAHS.length })} />
       <View style={{ height: 6, borderRadius: 3, backgroundColor: th.soft2, marginTop: 8, overflow: 'hidden' }}>
         <View style={{ width: `${(count / SURAHS.length) * 100}%`, height: 6, backgroundColor: th.ok }} />
       </View>

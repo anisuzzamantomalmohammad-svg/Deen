@@ -321,7 +321,7 @@ function SurahLesson({ mode }) {
   const [s, setS] = useState(null);
   const key = mode === 'read' ? 'read' : 'mem';
   const done = lr[key] || {};
-  const title = mode === 'read' ? t('Read a short surah') : t('Memorise');
+  const title = mode === 'read' ? t('Read a short chapter') : t('Memorise');
   if (s) {
     return mode === 'read'
       ? <ReadSurah s={s} onBack={() => setS(null)} onDone={() => { set('read', s, true); setS(null); }} />
@@ -330,14 +330,14 @@ function SurahLesson({ mode }) {
   return (
     <Page title={title} sub={t('{n} of {m} done', { n: count(done), m: SHORT_SURAHS.length })}>
       <Body size={12.5} color={th.muted} style={{ marginBottom: 10, lineHeight: 18 }}>
-        {mode === 'read' ? t('Start with Al-Fatiha. Read each ayah, then check the reading and the meaning.') : t('Recite from memory. Hide some words, then all of them. Tap a hidden word to peek.')}
+        {mode === 'read' ? t('Start with Al-Fatiha. Read each verse, then check the reading and the meaning.') : t('Recite from memory. Hide some words, then all of them. Tap a hidden word to peek.')}
       </Body>
       {SHORT_SURAHS.map((n) => (
         <Card key={n} onPress={() => setS(n)} style={{ marginBottom: 8, paddingVertical: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Tick done={!!done[n]} size={20} />
           <View style={{ flex: 1 }}>
             <Body size={14} weight="semi">{surahTitle(n, t.lang)}</Body>
-            <Body size={11.5} color={th.muted}>{t('{n} ayahs', { n: SURAHS[n - 1][6] })}</Body>
+            <Body size={11.5} color={th.muted}>{t('{n} verses', { n: SURAHS[n - 1][6] })}</Body>
           </View>
           <Arabic size={18} color={th.accent} style={{ lineHeight: 32 }}>{SURAHS[n - 1][1]}</Arabic>
         </Card>
@@ -374,7 +374,7 @@ function ReadSurah({ s, onBack, onDone }) {
   const tr = require('../data/quran/tr.json')[s - 1][a];
   const last = a === n - 1;
   return (
-    <SubPage title={SURAHS[s - 1][2]} sub={t('Ayah {a} of {n}', { a: a + 1, n })} onBack={onBack}>
+    <SubPage title={SURAHS[s - 1][2]} sub={t('Verse {a} of {n}', { a: a + 1, n })} onBack={onBack}>
       <View style={{ flexDirection: 'row', gap: 4, marginBottom: 12 }}>
         {ayahs.map((_, k) => <View key={k} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: k <= a ? th.accent : th.line }} />)}
       </View>
@@ -391,7 +391,7 @@ function ReadSurah({ s, onBack, onDone }) {
       </Press>
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
         <PrimaryButton ghost style={{ flex: 1 }} label={t('Previous')} disabled={a === 0} onPress={() => setA(a - 1)} />
-        <PrimaryButton style={{ flex: 1 }} icon={last ? 'check' : 'arrow-right'} label={last ? t('Done') : t('Next ayah')} onPress={() => (last ? onDone() : setA(a + 1))} />
+        <PrimaryButton style={{ flex: 1 }} icon={last ? 'check' : 'arrow-right'} label={last ? t('Done') : t('Next verse')} onPress={() => (last ? onDone() : setA(a + 1))} />
       </View>
     </SubPage>
   );
@@ -437,7 +437,7 @@ function MemoriseSurah({ s, onBack, done, onToggle }) {
       </Card>
       <Press onPress={onToggle} style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: done ? th.ok : th.line }}>
         <Tick done={done} />
-        <Body size={14} weight="semi">{t('I’ve memorised this surah')}</Body>
+        <Body size={14} weight="semi">{t('I’ve memorised this chapter')}</Body>
       </Press>
     </SubPage>
   );

@@ -137,6 +137,24 @@ export const GUIDES = [
     ref: BZ('Sajdah Sahw', 'সাহু সিজদা'),
   },
   {
+    id: 'masbuq', group: 'salah', unconfirmed: true,
+    title: { en: 'Joined the jama‘ah late (masbuq)', bn: 'জামাতে দেরিতে যোগ দিলে (মাসবুক)' },
+    intro: {
+      en: 'If you reach the imam in ruku before he rises, you have that rak‘ah. When the imam gives salam, don’t give salam with him: stand up and make up what you missed. The rak‘ahs you make up count as your first ones for reciting, and your last ones for sitting.',
+      bn: 'ইমাম রুকু থেকে ওঠার আগে রুকুতে শামিল হলে সেই রাকাত পেয়েছেন। ইমাম সালাম ফেরালে তাঁর সাথে সালাম ফেরাবেন না: দাঁড়িয়ে ছুটে যাওয়া রাকাতগুলো আদায় করুন। যে রাকাতগুলো পরে পড়বেন, কিরাতের দিক থেকে সেগুলো আপনার প্রথম রাকাত, আর বৈঠকের দিক থেকে শেষ রাকাত।',
+    },
+    steps: [
+      { en: 'Join with Allahu Akbar in whatever position the imam is in. In the imam’s last sitting, recite only the Tashahhud.', bn: 'ইমাম যে অবস্থায় আছেন, আল্লাহু আকবার বলে সেভাবেই শামিল হন। ইমামের শেষ বৈঠকে শুধু তাশাহহুদ পড়ুন।', dua: 46 },
+      { en: 'Missed 1 rak‘ah: after the imam’s salam, stand and pray 1 rak‘ah with Al-Fatiha and a surah, then the last sitting and salam.', bn: '১ রাকাত ছুটলে: ইমামের সালামের পর দাঁড়িয়ে সূরা ফাতিহা ও আরেকটি সূরা দিয়ে ১ রাকাত পড়ুন, তারপর শেষ বৈঠক ও সালাম।' },
+      { en: 'Missed 2 rak‘ahs: pray 2 rak‘ahs, both with Al-Fatiha and a surah, without sitting between them. Then the last sitting and salam.', bn: '২ রাকাত ছুটলে: ২ রাকাত পড়ুন, দুটোতেই সূরা ফাতিহা ও আরেকটি সূরা, মাঝে না বসে। তারপর শেষ বৈঠক ও সালাম।' },
+      { en: 'Missed 3 rak‘ahs: pray 1 with Al-Fatiha and a surah, then sit for the Tashahhud. Stand and pray 1 more with Al-Fatiha and a surah, then 1 with Al-Fatiha only. Then the last sitting and salam.', bn: '৩ রাকাত ছুটলে: সূরা ফাতিহা ও আরেকটি সূরা দিয়ে ১ রাকাত পড়ে তাশাহহুদের জন্য বসুন। দাঁড়িয়ে ফাতিহা ও সূরা দিয়ে আরও ১ রাকাত, তারপর শুধু ফাতিহা দিয়ে ১ রাকাত। তারপর শেষ বৈঠক ও সালাম।' },
+      { en: 'Maghrib, missed 2: pray 1 with Al-Fatiha and a surah, sit for the Tashahhud, then 1 more with Al-Fatiha and a surah, then the last sitting.', bn: 'মাগরিবে ২ রাকাত ছুটলে: ফাতিহা ও সূরা দিয়ে ১ রাকাত পড়ে তাশাহহুদের জন্য বসুন, তারপর ফাতিহা ও সূরা দিয়ে আরও ১ রাকাত, তারপর শেষ বৈঠক।' },
+      { en: 'Joined in the last sitting: when the imam gives salam, stand and pray the whole prayer as normal.', bn: 'শেষ বৈঠকে শামিল হলে: ইমাম সালাম ফেরালে দাঁড়িয়ে পুরো নামাজ স্বাভাবিক নিয়মে পড়ুন।' },
+    ],
+    notes: [{ en: 'If the imam does Sajdah Sahw, do it with him, then stand to make up your rak‘ahs.', bn: 'ইমাম সাহু সিজদা করলে তাঁর সাথে করুন, তারপর দাঁড়িয়ে আপনার রাকাতগুলো আদায় করুন।' }],
+    ref: BZ('Joining the jama‘ah late (masbuq)', 'মাসবুকের নামাজ'),
+  },
+  {
     id: 'qada', group: 'salah', title: { en: 'Making up missed prayers (qada)', bn: 'কাযা নামাজ' },
     intro: { en: 'Every missed fard prayer, and Witr, must be made up. Do it as soon as you can.', bn: 'প্রতিটি ছুটে যাওয়া ফরজ নামাজ এবং বিতর কাযা করতে হয়। যত তাড়াতাড়ি সম্ভব আদায় করুন।' },
     steps: [

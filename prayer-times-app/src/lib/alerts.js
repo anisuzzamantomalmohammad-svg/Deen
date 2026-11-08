@@ -5,7 +5,7 @@
 // the same thing.
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { computeDay, formatTime, addMinutes, PRAYER_NAMES, addDays, dayKeyOf } from './prayer';
+import { computeDay, formatTime, addMinutes, PRAYER_NAMES, addDays, dayKeyOf, timeAdj } from './prayer';
 import { hijriFor, nextMonthBoundary, dayNumber, HIJRI_MONTHS, HIJRI_MONTHS_BN } from './hijri';
 import { prayerWindow, nightOf } from './waqt';
 import { eventsOnDay, eclipseOnDay } from './events';
@@ -95,13 +95,13 @@ export function planAlerts(s, today, cal, nowMs = Date.now()) {
     return !!(((s.completedByDay || {})[dayKeyOf(day)] || {})[id] || ((s.qadaRecords || {})[dayKeyOf(day)] || {})[id]);
   };
   const late = (day, name) => !!((s.qadaRecords || {})[dayKeyOf(day)] || {})[PRAYER_NAMES.indexOf(name) + 1];
-  const day0 = computeDay(s.coords, s.calcMethod, s.asrMethod, addDays(today, -1));
+  const day0 = computeDay(s.coords, s.calcMethod, s.asrMethod, addDays(today, -1), timeAdj(s));
   let prevTimes = day0;
-  let times = computeDay(s.coords, s.calcMethod, s.asrMethod, today);
+  let times = computeDay(s.coords, s.calcMethod, s.asrMethod, today, timeAdj(s));
 
   for (let i = 0; i < DAYS_AHEAD; i++) {
     const day = addDays(today, i);
-    const nextTimes = computeDay(s.coords, s.calcMethod, s.asrMethod, addDays(day, 1));
+    const nextTimes = computeDay(s.coords, s.calcMethod, s.asrMethod, addDays(day, 1), timeAdj(s));
     const h = hijriFn(day);
     const nextH = hijriFn(addDays(day, 1));
     const fast = s.fastingAlerts ? fastingDayInfo(day, cal) : null;
@@ -337,7 +337,7 @@ export function planAlerts(s, today, cal, nowMs = Date.now()) {
   if (s.moonCheck !== false) {
     const b = nextMonthBoundary(today, cal);
     if (b) {
-      const eve = computeDay(s.coords, s.calcMethod, s.asrMethod, b.evening);
+      const eve = computeDay(s.coords, s.calcMethod, s.asrMethod, b.evening, timeAdj(s));
       const at = addMinutes(eve.Maghrib, 20);
       if (at.getTime() - nowMs < DAYS_AHEAD * 86400000) {
         const month = hName(b.monthIndex);

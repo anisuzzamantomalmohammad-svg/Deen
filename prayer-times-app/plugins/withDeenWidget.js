@@ -14,35 +14,49 @@ function withFiles(config) {
     const main = path.join(cfg.modRequest.platformProjectRoot, 'app', 'src', 'main');
     const javaDir = path.join(main, 'java', PKG_PATH);
     fs.mkdirSync(javaDir, { recursive: true });
-    for (const f of ['DeenWidgetProvider.java', 'DeenWidgetModule.java', 'DeenWidgetPackage.java', 'DeenTickService.java']) {
+    for (const f of ['DeenWidgetProvider.java', 'DeenWidgetModule.java', 'DeenWidgetPackage.java', 'DeenTickService.java', 'DeenWidgets.java', 'DeenGlassWidget.java', 'DeenDotsWidget.java', 'DeenFastWidget.java']) {
       fs.copyFileSync(path.join(SRC, f), path.join(javaDir, f));
     }
     const layout = path.join(main, 'res', 'layout');
     const xml = path.join(main, 'res', 'xml');
     fs.mkdirSync(layout, { recursive: true });
     fs.mkdirSync(xml, { recursive: true });
-    fs.copyFileSync(path.join(SRC, 'deen_widget.xml'), path.join(layout, 'deen_widget.xml'));
-    fs.copyFileSync(path.join(SRC, 'deen_widget_info.xml'), path.join(xml, 'deen_widget_info.xml'));
+    for (const k of ['', '_glass', '_dots', '_fast']) {
+      fs.copyFileSync(path.join(SRC, `deen_widget${k}.xml`), path.join(layout, `deen_widget${k}.xml`));
+      fs.copyFileSync(path.join(SRC, `deen_widget${k}_info.xml`), path.join(xml, `deen_widget${k}_info.xml`));
+    }
     return cfg;
   }]);
 }
 
+// The four widgets in the launcher's list.
+const WIDGETS = [
+  { name: '.widget.DeenGlassWidget', label: 'Deen · All 5 prayers', info: 'deen_widget_glass_info' },
+  { name: '.widget.DeenDotsWidget', label: 'Deen · Now and next', info: 'deen_widget_dots_info' },
+  { name: '.widget.DeenFastWidget', label: 'Deen · Seheri & Iftar', info: 'deen_widget_fast_info' },
+  { name: '.widget.DeenWidgetProvider', label: 'Deen · Countdown', info: 'deen_widget_info', main: true },
+];
+
 function withReceiver(config) {
   return withAndroidManifest(config, (cfg) => {
     const app = cfg.modResults.manifest.application[0];
-    app.receiver = (app.receiver || []).filter((r) => r.$['android:name'] !== '.widget.DeenWidgetProvider');
-    app.receiver.push({
-      $: { 'android:name': '.widget.DeenWidgetProvider', 'android:exported': 'false', 'android:label': 'Deen' },
-      'intent-filter': [{
-        action: [
-          { $: { 'android:name': 'android.appwidget.action.APPWIDGET_UPDATE' } },
+    const names = WIDGETS.map((w) => w.name);
+    app.receiver = (app.receiver || []).filter((r) => !names.includes(r.$['android:name']));
+    for (const w of WIDGETS) {
+      const action = [{ $: { 'android:name': 'android.appwidget.action.APPWIDGET_UPDATE' } }];
+      if (w.main) {
+        action.push(
           { $: { 'android:name': 'com.tomal.prayertimes.widget.REFRESH' } },
           { $: { 'android:name': 'android.intent.action.TIME_SET' } },
           { $: { 'android:name': 'android.intent.action.TIMEZONE_CHANGED' } },
-        ],
-      }],
-      'meta-data': [{ $: { 'android:name': 'android.appwidget.provider', 'android:resource': '@xml/deen_widget_info' } }],
-    });
+        );
+      }
+      app.receiver.push({
+        $: { 'android:name': w.name, 'android:exported': 'false', 'android:label': w.label },
+        'intent-filter': [{ action }],
+        'meta-data': [{ $: { 'android:name': 'android.appwidget.provider', 'android:resource': `@xml/${w.info}` } }],
+      });
+    }
     // Short background task that saves a widget tick (HeadlessJS).
     app.service = (app.service || []).filter((x) => x.$['android:name'] !== '.widget.DeenTickService');
     app.service.push({ $: { 'android:name': '.widget.DeenTickService', 'android:exported': 'false' } });

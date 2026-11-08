@@ -27,13 +27,26 @@ public class DeenWidgetModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
+  public void pinKind(String kind, Promise promise) {
+    Class<?> cls = "glass".equals(kind) ? DeenGlassWidget.class
+        : "dots".equals(kind) ? DeenDotsWidget.class
+        : "fast".equals(kind) ? DeenFastWidget.class
+        : DeenWidgetProvider.class;
+    pinClass(cls, promise);
+  }
+
+  @ReactMethod
   public void pin(Promise promise) {
+    pinClass(DeenWidgetProvider.class, promise);
+  }
+
+  private void pinClass(Class<?> cls, Promise promise) {
     try {
       Context c = getReactApplicationContext();
       if (Build.VERSION.SDK_INT < 26) { promise.resolve(false); return; }
       AppWidgetManager m = c.getSystemService(AppWidgetManager.class);
       if (m == null || !m.isRequestPinAppWidgetSupported()) { promise.resolve(false); return; }
-      promise.resolve(m.requestPinAppWidget(new ComponentName(c, DeenWidgetProvider.class), null, null));
+      promise.resolve(m.requestPinAppWidget(new ComponentName(c, cls), null, null));
     } catch (Exception e) {
       promise.resolve(false);
     }

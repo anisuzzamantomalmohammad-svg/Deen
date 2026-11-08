@@ -972,8 +972,8 @@ export default function Sheets({ sheet, onClose }) {
       body = <InfoSheet {...p} />;
       break;
     case 'shareToday':
-      title = t("Share today's times");
-      body = <ShareTodaySheet />;
+      title = t('Share times');
+      body = <ShareTodaySheet onClose={onClose} />;
       break;
     case 'birthday':
       title = t('Hijri birthday');

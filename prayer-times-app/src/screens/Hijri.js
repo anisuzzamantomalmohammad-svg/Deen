@@ -175,7 +175,7 @@ export default function HijriScreen() {
   const subLine = regular ? hSpan : `${t.num(hm.year)} ${t('AH')} · ${gSpan}`;
   const flipMain = () => {
     const next = regular ? 'hijri' : 'regular';
-    app.update({ calMain: next });
+    app.update({ calMain: next, calMainV: 1 });
     app.setToast(next === 'regular' ? t('Showing regular dates') : t('Showing Hijri dates'));
   };
 

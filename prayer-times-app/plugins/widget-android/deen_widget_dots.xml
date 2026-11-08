@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/x_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+  <ImageView
+      android:id="@+id/x_bg"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:scaleType="fitXY"
+      android:contentDescription="@null" />
+  <FrameLayout
+      android:id="@+id/x_tap"
+      android:layout_width="64dp"
+      android:layout_height="64dp"
+      android:layout_gravity="end|center_vertical"
+      android:layout_marginEnd="6dp"
+      android:contentDescription="Tick the current prayer" />
+  <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="36dp"
+      android:layout_gravity="bottom"
+      android:paddingStart="8dp"
+      android:paddingEnd="8dp"
+      android:orientation="horizontal">
+    <FrameLayout android:id="@+id/x_z1" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+    <FrameLayout android:id="@+id/x_z2" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+    <FrameLayout android:id="@+id/x_z3" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+    <FrameLayout android:id="@+id/x_z4" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+    <FrameLayout android:id="@+id/x_z5" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+  </LinearLayout>
+</FrameLayout>

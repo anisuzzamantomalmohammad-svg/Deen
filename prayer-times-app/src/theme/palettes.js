@@ -66,17 +66,40 @@ const RED_LIGHT = {
   soft: 'rgba(192,57,43,0.05)', soft2: 'rgba(192,57,43,0.09)', accentSoft: 'rgba(192,57,43,0.12)', accentLine: 'rgba(192,57,43,0.45)', arcAr: '#FFD9CF',
 };
 
-// Warm amber for the night (Tahajjud): easy to read, nothing blue or white.
-const NIGHT_RED = {
-  ...dark('nightAmber', 'Night amber', '#110B05', '#1A1108', '#F3C98F', '#F0A74B', '#F0A74B', '#1C1209', '#C9A15A'),
-  card: '#4E2E0E', cardInk: '#FFE2B8', arcAr: '#FFB35C', statusBar: 'light-content', nightRed: true,
-};
+// Night mode (Tahajjud): dim, low-glare greys with a soft tint ("Dim
+// moonlight" family). One is picked at random each night. Outline-style
+// highlights, a calm tick colour and a faint pattern.
+const nightPalette = (id, name, bg, bg2, ink, accent, card, cardInk) => ({
+  ...dark(id, name, bg, bg2, ink, accent, accent, bg2, rgba(accent, 0.95)),
+  card, cardInk, arcAr: accent, accentSoft: rgba(accent, 0.1), accentLine: rgba(accent, 0.4),
+  muted: rgba(ink, 0.66), faint: rgba(ink, 0.42), line: rgba(ink, 0.13), soft: rgba(ink, 0.045), soft2: rgba(ink, 0.08),
+  ok: '#7FA383', red: '#C27A6E', redSoft: 'rgba(194,122,110,0.14)', amber: '#B9965C',
+  statusBar: 'light-content', nightRed: true, patternOpacity: 0.14,
+});
+export const NIGHT_PALETTES = [
+  nightPalette('dimMoonlight', 'Dim moonlight', '#0B0B0A', '#121210', '#B3AA9A', '#B49A6A', '#22201C', '#D2C7B4'),
+  nightPalette('sepiaNight', 'Sepia night', '#0C0A08', '#14110D', '#B5A58F', '#AE8E62', '#241E17', '#D4C3A8'),
+  nightPalette('softPewter', 'Soft pewter', '#0B0C0C', '#131515', '#A9ACA8', '#A39C84', '#1F2221', '#C9CCC6'),
+  nightPalette('coolMoon', 'Cool moon', '#0A0B0D', '#111317', '#A8ADB6', '#A7A08A', '#1E2126', '#C8CDD5'),
+  nightPalette('duskySand', 'Dusky sand', '#0D0B09', '#15120F', '#B8AB98', '#B9A07A', '#26211B', '#D6CAB6'),
+  nightPalette('midnightStone', 'Midnight stone', '#090909', '#101010', '#A39D93', '#9E8B68', '#1C1B19', '#C4BDB1'),
+  nightPalette('oliveDusk', 'Olive dusk', '#0A0B08', '#12130F', '#ADAD98', '#A69D6E', '#20211B', '#CDCDB8'),
+  nightPalette('roseAsh', 'Rose ash', '#0C0A0A', '#141111', '#B3A6A3', '#AD948A', '#231E1D', '#D1C4C0'),
+];
+// The same palette all night (picked from the night's date), never the same as last night.
+export function nightPaletteFor(date) {
+  const k = date.getFullYear() * 400 + date.getMonth() * 32 + date.getDate();
+  const i = k % NIGHT_PALETTES.length;
+  const y = (k - 1) % NIGHT_PALETTES.length;
+  return NIGHT_PALETTES[i === y ? (i + 1) % NIGHT_PALETTES.length : i];
+}
+const NIGHT_RED = NIGHT_PALETTES[0];
 
 // `daily` is the palette picked for this time of day (see theme/daily.js),
 // already split into a dark and a light version. `night` turns on warm amber.
 export function resolveTheme({ mode, darkId, lightId, systemScheme, prohibited, daily, night }) {
   const useLight = mode === 'light' || (mode === 'auto' && systemScheme === 'light');
-  if (night) return NIGHT_RED;
+  if (night) return typeof night === 'object' ? night : NIGHT_RED;
   let base;
   if (daily) base = useLight ? daily.light : daily.dark;
   else {

@@ -6,15 +6,16 @@ import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import * as Haptics from 'expo-haptics';
 import {
-  DEFAULT_COORDS, PRAYER_NAMES, computeDay, makruhWindows, resolveTimezone, zonedParts, addDays,
+  DEFAULT_COORDS, PRAYER_NAMES, computeDay, makruhWindows, resolveTimezone, zonedParts, addDays, addMinutes, timeAdj,
 } from '../lib/prayer';
 import { computeVisibilityMonths, finaliseMonths, hijriFor } from '../lib/hijri';
 import { scheduleAll, fromYmd, snoozeAlert, trimPresented, clearPrayerAlerts, ymd } from '../lib/alerts';
-import { resolveTheme } from '../theme/palettes';
+import { resolveTheme, nightPaletteFor } from '../theme/palettes';
 import { dailyPalette } from '../theme/daily';
 import { nightOf, prayerWindow } from '../lib/waqt';
 import { isHijriBirthday } from '../lib/birthday';
 import { migrateQada, statusPatch, rakahPatch, answered } from '../lib/qada';
+import { DHIKR, dhikrTotal } from '../data/dhikr';
 import { translate } from '../i18n';
 import { autoBackupDue, writeAutoBackup } from '../lib/backup';
 import { driveBackupDue, uploadBackup, downloadSync, uploadSync } from '../lib/google';
@@ -131,7 +132,11 @@ export const DEFAULTS = {
   lastDriveBackupAt: null,
   googleCardHidden: false,
   calSync: null, // { calendarId, kinds, eventIds, title }
-  calMain: 'hijri', // hijri | regular
+  timeAdj: {}, // minutes per prayer, this phone only
+  adjPerCity: false,
+  adjByCity: {},
+  calMain: 'regular', // regular | hijri (regular by default from 1.6.0)
+  calMainV: 0,
   // 1.6.0
   rakahByDay: {}, // { [day]: { [prayerId]: { sb, sa, nf, wt, ... } } } sunnah/nafl ticks
   tickAt: {}, // { [day]: { [prayerId]: iso } } when a prayer was answered
@@ -151,6 +156,7 @@ export const DEFAULTS = {
   missedFasts: [], // [{ day, reason, madeUp }]
   zakatFitrDone: {}, // { [hijriYear]: true }
   quran: { last: null, bookmarks: [], notes: {}, trans: 'both' }, // last: { s, a }
+  dhikrByDay: {},
   namesLearnt: {},
   learn: { letters: {}, games: {} },
   ramadanOrder: null, // Home order during Ramadan
@@ -174,6 +180,9 @@ export function migrate(saved) {
   Object.keys(DEFAULTS).forEach((k) => {
     if (saved[k] !== undefined && saved[k] !== null) out[k] = saved[k];
   });
+  // 1.6.0: the calendar opens on regular (English) dates. Switch everyone once;
+  // after that their own choice stays.
+  if (!saved.calMainV) { out.calMain = 'regular'; out.calMainV = 1; }
   if (saved.themeMode === 'system') out.themeMode = 'auto';
   if (saved.onboarded === undefined && (saved.completedByDay || saved.calcMethod)) out.onboarded = true; // existing user
   if (out.asrMethod !== 'Hanafi') out.asrMethod = 'Standard';
@@ -204,6 +213,13 @@ export function saved0Coords(s) {
 
 const AppCtx = createContext(null);
 export const useApp = () => useContext(AppCtx);
+
+// Morning & evening adhkar: done when the Daily dhikr morning and evening rows are complete.
+const ADHKAR_ROWS = DHIKR.filter((d) => d.group === 'morning' || d.group === 'evening');
+function adhkarDone(data, dateObj) {
+  const rec = ((data.dhikrByDay || {})[dateObj.toDateString()]) || {};
+  return ADHKAR_ROWS.every((d) => (rec[d.id] || 0) >= dhikrTotal(d));
+}
 
 const distKm = (a, b) => {
   if (!a || !b) return 0;
@@ -365,14 +381,14 @@ export function AppProvider({ children }) {
     const k = today.toDateString();
     if (hydrated && !preview && data.travelConfirmed && !(data.safarDays || {})[k]) update((p) => ({ safarDays: { ...(p.safarDays || {}), [k]: true } }));
   }, [data.travelConfirmed, todayKey, hydrated, preview]);
-  const settingsKey = `${coords.latitude.toFixed(3)},${coords.longitude.toFixed(3)},${data.calcMethod},${data.asrMethod}`;
+  const settingsKey = `${coords.latitude.toFixed(3)},${coords.longitude.toFixed(3)},${data.calcMethod},${data.asrMethod},${JSON.stringify(timeAdj(data) || {})}`;
   const dayCache = useRef({ key: '', map: new Map() });
   const getDay = useCallback((dateObj) => {
     if (dayCache.current.key !== settingsKey) dayCache.current = { key: settingsKey, map: new Map() };
     const k = dateObj.toDateString();
     let v = dayCache.current.map.get(k);
     if (!v) {
-      v = computeDay(coords, data.calcMethod, data.asrMethod, dateObj);
+      v = computeDay(coords, data.calcMethod, data.asrMethod, dateObj, timeAdj(data));
       dayCache.current.map.set(k, v);
     }
     return v;
@@ -454,21 +470,21 @@ export function AppProvider({ children }) {
   const effectiveMode = data.themeMode === 'daynight' ? (dayLight ? 'light' : 'dark') : data.themeMode;
   const dailyId = daily ? daily.palette.id : '';
   const theme = useMemo(
-    () => resolveTheme({ mode: effectiveMode, darkId: data.darkPalette, lightId: data.lightPalette, systemScheme, prohibited: !!activeMakruh, daily: daily && daily.palette, night: nightOn }),
-    [effectiveMode, data.darkPalette, data.lightPalette, systemScheme, !!activeMakruh, dailyId, nightOn]
+    () => resolveTheme({ mode: effectiveMode, darkId: data.darkPalette, lightId: data.lightPalette, systemScheme, prohibited: !!activeMakruh, daily: daily && { ...daily.palette, light: (daily.lightPalette || daily.palette).light }, night: nightOn ? nightPaletteFor(nightBase) : false }),
+    [effectiveMode, data.darkPalette, data.lightPalette, systemScheme, !!activeMakruh, dailyId, nightOn, nightBase.toDateString()]
   );
 
   /* ---------------- widget ---------------- */
   // The widget follows the app's colours (palette, light/dark, daily colours),
   // without the red of prohibited times or night mode.
   const widgetTheme = useMemo(
-    () => resolveTheme({ mode: effectiveMode, darkId: data.darkPalette, lightId: data.lightPalette, systemScheme, prohibited: false, daily: daily && daily.palette, night: false }),
+    () => resolveTheme({ mode: effectiveMode, darkId: data.darkPalette, lightId: data.lightPalette, systemScheme, prohibited: false, daily: daily && { ...daily.palette, light: (daily.lightPalette || daily.palette).light }, night: false }),
     [effectiveMode, data.darkPalette, data.lightPalette, systemScheme, dailyId]
   );
   const widgetKey = [hydrated, todayKey, settingsKey, coords.timezone, data.lang, widgetTheme.bg, widgetTheme.accent, data.maxTwoAlerts, cal.mode, cal.offset, rawMonths?.key,
     JSON.stringify(data.completedByDay[today.toDateString()] || {}), JSON.stringify(data.completedByDay[addDays(today, -1).toDateString()] || {}),
     JSON.stringify((data.qadaRecords || {})[today.toDateString()] || {}), JSON.stringify((data.qadaRecords || {})[addDays(today, -1).toDateString()] || {}),
-    !!data.travelConfirmed, JSON.stringify(data.journalByDay[today.toDateString()] || {}), JSON.stringify(data.fastPlans || {})].join('|');
+    !!data.travelConfirmed, JSON.stringify(data.journalByDay[today.toDateString()] || {}), JSON.stringify(data.fastPlans || {}), JSON.stringify(data.notFastingByDay || {}), (data.missedFasts || []).length, data.nightOn, data.nightWhen, data.nightOffDay, data.darkPalette, data.safetyBuffer].join('|');
   useEffect(() => {
     if (!hydrated || Platform.OS !== 'android' || preview) return undefined;
     const h = setTimeout(() => {
@@ -607,7 +623,7 @@ export function AppProvider({ children }) {
 
   /* ---------------- alerts ---------------- */
   const alertKey = [
-    hydrated, data.onboarded, todayKey, coords.latitude.toFixed(2), coords.longitude.toFixed(2), coords.timezone, data.calcMethod, data.asrMethod, data.safetyBuffer,
+    hydrated, data.onboarded, todayKey, coords.latitude.toFixed(2), coords.longitude.toFixed(2), coords.timezone, data.calcMethod, data.asrMethod, data.safetyBuffer, JSON.stringify(timeAdj(data) || {}),
     data.notificationsEnabled, data.fastingAlerts, data.preReminderMins, JSON.stringify(data.preOff), JSON.stringify(data.adhanOff), JSON.stringify(data.fastPlans),
     data.jumuahReminder, data.kahfReminder, data.moonCheck, data.lang, cal.mode, cal.offset, JSON.stringify(data.hijriOverrides), rawMonths?.key,
     JSON.stringify(data.nudgeOn), data.nudgeLead, data.fajrHijri, data.morningDua, data.tahajjudReminder, data.fridayLastHour, data.newMonthAlert,
@@ -662,7 +678,7 @@ export function AppProvider({ children }) {
         const day = fromYmd(d.day);
         const s0 = dataRef.current;
         const c0 = saved0Coords(s0);
-        const w = prayerWindow(d.name, computeDay(c0, s0.calcMethod, s0.asrMethod, day), computeDay(c0, s0.calcMethod, s0.asrMethod, addDays(day, 1)));
+        const w = prayerWindow(d.name, computeDay(c0, s0.calcMethod, s0.asrMethod, day, timeAdj(s0)), computeDay(c0, s0.calcMethod, s0.asrMethod, addDays(day, 1), timeAdj(s0)));
         // After the prayer's time: ask "Did you pray it?" instead of ticking.
         if (nowDate() >= w.end) {
           setPendingOpen({ type: 'prayer', name: d.name, day: d.day });
@@ -753,9 +769,32 @@ export function AppProvider({ children }) {
       });
       return;
     }
+    // Duha and Tahajjud can't be ticked before their time starts (like prayers).
+    if (k === 'duha' || k === 'tahajjud') {
+      const dd = getDay(dateObj);
+      const start = k === 'duha' ? addMinutes(dd.Sunrise, 15) : dd.Isha;
+      const on = !(dataRef.current.completedSunnahByDay[key] || {})[k];
+      if (on && nowDate() < start) { setToast(translate(dataRef.current.lang, 'You can tick it once it starts.')); return; }
+    }
+    // Morning & evening adhkar is the same tick as the Daily dhikr morning and evening rows.
+    if (k === 'dhikr') {
+      setData((prev) => {
+        const on = !adhkarDone(prev, dateObj);
+        const all = { ...(prev.dhikrByDay || {}) };
+        const day = { ...(all[key] || {}) };
+        ADHKAR_ROWS.forEach((d) => { day[d.id] = on ? dhikrTotal(d) : 0; });
+        all[key] = day;
+        return { ...prev, dhikrByDay: all, completedSunnahByDay: { ...prev.completedSunnahByDay, [key]: { ...(prev.completedSunnahByDay[key] || {}), dhikr: on } }, dirtyAt: Date.now() };
+      });
+      return;
+    }
     setData((prev) => ({ ...prev, completedSunnahByDay: { ...prev.completedSunnahByDay, [key]: { ...(prev.completedSunnahByDay[key] || {}), [k]: !(prev.completedSunnahByDay[key] || {})[k] } } }));
-  }, []);
-  const isSunnahDone = (dateObj, k) => (k === 'roja' ? !!(data.journalByDay[dateObj.toDateString()] || {}).fasted : !!(data.completedSunnahByDay[dateObj.toDateString()] || {})[k]);
+  }, [getDay]);
+  const isSunnahDone = (dateObj, k) => {
+    if (k === 'roja') return !!(data.journalByDay[dateObj.toDateString()] || {}).fasted;
+    if (k === 'dhikr') return adhkarDone(data, dateObj);
+    return !!(data.completedSunnahByDay[dateObj.toDateString()] || {})[k];
+  };
   const setStatus = useCallback((dateObj, name, status, extra) => {
     setData((prev) => ({ ...prev, ...statusPatch(prev, dateObj, name, status, extra) }));
     afterAnswer(dateObj, name, status);

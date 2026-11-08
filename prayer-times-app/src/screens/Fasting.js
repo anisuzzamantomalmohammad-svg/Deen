@@ -159,14 +159,14 @@ function RamadanTracker({ h }) {
         {grid(nights, tar, toggleT, h.day, t('Night'), true)}
         <Body size={11} color={th.faint} style={{ marginTop: 10, lineHeight: 15 }}>{t('Gold edge: the odd nights of the last ten. Seek Laylat al-Qadr in them (Bukhari 2017).')}</Body>
       </Card>
-      <SectionLabel right={<Label>{t('{n} of {m}', { n: jDone, m: 30 })}</Label>}>{t('Quran · juz read')}</SectionLabel>
+      <SectionLabel right={<Label>{t('{n} of {m}', { n: jDone, m: 30 })}</Label>}>{t('Quran · parts read')}</SectionLabel>
       <Card style={{ padding: 12 }}>
-        {grid(30, juz, toggleJ, null, t('Juz'))}
+        {grid(30, juz, toggleJ, null, t('Parts'))}
         <View style={{ height: 5, borderRadius: 3, backgroundColor: th.line, marginTop: 12, overflow: 'hidden' }}>
           <View style={{ width: `${(jDone / 30) * 100}%`, height: 5, backgroundColor: th.accent }} />
         </View>
         <Body size={11.5} color={th.muted} style={{ marginTop: 6 }}>
-          {jDone >= 30 ? t('Khatm complete. May Allah accept it.') : t('{n} juz to go · about {p} a day to finish by Eid', { n: 30 - jDone, p: Math.max(1, Math.ceil((30 - jDone) / Math.max(1, 30 - h.day + 1))) })}
+          {jDone >= 30 ? t('Khatm complete. May Allah accept it.') : t('{n} parts to go · about {p} a day to finish by Eid', { n: 30 - jDone, p: Math.max(1, Math.ceil((30 - jDone) / Math.max(1, 30 - h.day + 1))) })}
         </Body>
       </Card>
     </View>

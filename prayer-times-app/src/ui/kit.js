@@ -287,7 +287,7 @@ export function PrimaryButton({ label, onPress, icon, style, disabled, ghost }) 
 //   safar    compass rose             fullmoon  a full moon (White Days)
 export function PatternBand({ height = 300, style, opacity, variant }) {
   const th = useTheme();
-  const op = opacity ?? (th.isLight ? 0.28 : 0.35);
+  const op = opacity ?? (th.patternOpacity ?? (th.isLight ? 0.28 : 0.35));
   const stroke = th.prohibited ? (th.isLight ? '#C0392B' : '#B05040') : th.accent;
   const id = `pat-${variant || 'star'}`;
   return (

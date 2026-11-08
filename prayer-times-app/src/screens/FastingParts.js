@@ -286,7 +286,7 @@ export function RamadanSummaryCard({ style }) {
   const rows = [
     [t('Fasts kept'), t('{n} of {m}', { n: s.kept, m: s.len })],
     [t('Taraweeh'), t('{n} nights', { n: s.tar })],
-    [t('Quran'), t('{n} of 30 juz', { n: s.juz })],
+    [t('Quran'), t('{n} of 30 parts', { n: s.juz })],
     s.pct != null ? [t('Prayers on time'), `${t.num(s.pct)}%`] : null,
   ].filter(Boolean);
   const share = () => {

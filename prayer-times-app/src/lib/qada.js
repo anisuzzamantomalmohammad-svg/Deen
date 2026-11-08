@@ -8,6 +8,7 @@
 // Older missed prayers with no date (from before the user started tracking)
 // live in qadaCounts; each one made up is logged in olderLog so it shows in
 // the history and on the calendar day it was prayed.
+import { nowDate } from './clock';
 import { PRAYER_NAMES, addDays } from './prayer';
 import { rakahRows } from '../data/prayerInfo';
 
@@ -63,10 +64,12 @@ export const answered = (data, date, name) => {
 // Rak'ah rows a tick fills in by itself: the strongly recommended sunnah
 // (mu'akkadah) and Witr. While travelling (safar) only Fajr's sunnah and
 // Witr. Sunnah that aren't mu'akkadah and nafl are always left to the user.
-export function defaultRakahTicks(rows, { safar, name } = {}) {
+export function defaultRakahTicks(rows, { safar, name, qada, sameDayFajr } = {}) {
   const out = {};
   rows.forEach((r) => {
-    if (r.kind === 'muakkadah') out[r.key] = !safar || name === 'Fajr';
+    // Hanafi: a prayer made up after its time is the fard (and Witr) only.
+    // The one exception is Fajr's sunnah, made up with the fard the same day before midday.
+    if (r.kind === 'muakkadah') out[r.key] = qada ? !!(name === 'Fajr' && sameDayFajr) : (!safar || name === 'Fajr');
     else if (r.kind === 'witr') out[r.key] = true;
   });
   return out;
@@ -84,7 +87,7 @@ export function statusPatch(prev, date, name, status, extra = {}) {
   delete done[id];
   delete qr[id];
   if (status === 'ontime') done[id] = true;
-  if (status === 'qada') qr[id] = { on: extra.on || ymd(new Date()), reason: extra.reason || null, note: extra.note || '', at: new Date().toISOString(), ...(extra.late ? { late: true } : {}) };
+  if (status === 'qada') qr[id] = { on: extra.on || ymd(nowDate()), reason: extra.reason || null, note: extra.note || '', at: nowDate().toISOString(), ...(extra.late ? { late: true } : {}) };
   const qadaRecords = { ...(prev.qadaRecords || {}) };
   if (Object.keys(qr).length) qadaRecords[key] = qr;
   else delete qadaRecords[key];
@@ -93,7 +96,7 @@ export function statusPatch(prev, date, name, status, extra = {}) {
   const rk = { ...(prev.rakahByDay || {}) };
   const dayR = { ...(rk[key] || {}) };
   if (!nowAnswered) delete dayR[id];
-  else if (!wasAnswered && !dayR[id]) dayR[id] = defaultRakahTicks(rakahRows(name, date, prev), { safar: !!prev.travelConfirmed, name });
+  else if (!dayR[id] || (status === 'qada' && !!((prev.completedByDay || {})[key] || {})[id])) dayR[id] = defaultRakahTicks(rakahRows(name, date, prev), { safar: !!prev.travelConfirmed, name, qada: status === 'qada', sameDayFajr: (extra.on || ymd(nowDate())) === ymd(date) && nowDate().getHours() < 12 });
   if (Object.keys(dayR).length) rk[key] = dayR;
   else delete rk[key];
   // "Not yet" marks it as owed now; any other answer clears that.
@@ -105,7 +108,7 @@ export function statusPatch(prev, date, name, status, extra = {}) {
   else delete np[key];
   const ta = { ...(prev.tickAt || {}) };
   const dayT = { ...(ta[key] || {}) };
-  if (nowAnswered && !wasAnswered) dayT[id] = new Date().toISOString();
+  if (nowAnswered && !wasAnswered) dayT[id] = nowDate().toISOString();
   if (!nowAnswered) delete dayT[id];
   if (Object.keys(dayT).length) ta[key] = dayT;
   else delete ta[key];
@@ -126,11 +129,24 @@ export function rakahPatch(prev, date, name, rowKey, on) {
   const id = idOf(name);
   const rk = { ...(prev.rakahByDay || {}) };
   const dayR = { ...(rk[key] || {}) };
-  dayR[id] = { ...(dayR[id] || {}), [rowKey]: on };
+  dayR[id] = { ...(dayR[id] || rakahDefaults(prev, date, name)), [rowKey]: on };
   rk[key] = dayR;
   return { rakahByDay: rk, dirtyAt: Date.now() };
 }
-export const rakahOf = (data, date, name) => (((data.rakahByDay || {})[date.toDateString()] || {})[idOf(name)]) || {};
+const rakahDefaults = (data, date, name) => {
+  const q = ((data.qadaRecords || {})[date.toDateString()] || {})[idOf(name)];
+  return defaultRakahTicks(rakahRows(name, date, data), { safar: !!data.travelConfirmed, name, qada: !!q, sameDayFajr: !!q && q.on === ymd(date) });
+};
+// A prayer answered before its sunnah ticks were saved (e.g. ticked in an
+// older version) shows the default ticks: fard, sunnah mu'akkadah and Witr.
+export function rakahOf(data, date, name) {
+  const key = date.toDateString();
+  const id = idOf(name);
+  const saved = ((data.rakahByDay || {})[key] || {})[id];
+  if (saved) return saved;
+  const answeredNow = !!((data.completedByDay || {})[key] || {})[id] || !!((data.qadaRecords || {})[key] || {})[id];
+  return answeredNow ? rakahDefaults(data, date, name) : {};
+}
 
 // Has the user tracked this day at all? Days with nothing set are skipped
 // (most likely the app just wasn't used), unless they touched the day.

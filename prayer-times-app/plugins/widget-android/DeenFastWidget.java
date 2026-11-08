@@ -1,0 +1,19 @@
+package com.tomal.prayertimes.widget;
+
+import android.appwidget.AppWidgetManager;
+import android.appwidget.AppWidgetProvider;
+import android.content.Context;
+import android.os.Bundle;
+
+// Drawn by DeenWidgets; one redraw covers every Deen widget.
+public class DeenFastWidget extends AppWidgetProvider {
+  @Override
+  public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
+    DeenWidgetProvider.renderAll(context);
+  }
+
+  @Override
+  public void onAppWidgetOptionsChanged(Context context, AppWidgetManager manager, int id, Bundle options) {
+    DeenWidgetProvider.renderAll(context);
+  }
+}

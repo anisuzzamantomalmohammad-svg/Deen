@@ -93,7 +93,7 @@ export function WhatsNewSheet({ onClose }) {
   const t = useT();
   const items = [
     { icon: 'refresh-cw', title: t('Same on both phones'), body: t('Sign in with Google and your log stays the same on two phones.'), go: () => nav.openSheet('account') },
-    { icon: 'grid', title: t('Essentials'), body: t('Qibla, timetable, charity, mosques near you, tasbih and more, in one tab.'), go: () => nav.setTab('Essentials') },
+    { icon: 'grid', title: t('Essentials'), body: t('Qibla, timetable, charity, tasbih and more, in one tab.'), go: () => nav.setTab('Essentials') },
     { icon: 'check-circle', title: t('Did you pray it?'), body: t('Late, on time or not yet, with your sunnah ticks on each prayer.'), go: () => nav.setTab('Prayers') },
     { icon: 'book', title: t('Quran reader'), body: t('The full Quran with Bangla and English, offline.'), go: () => nav.push('quran') },
     { icon: 'type', title: t('Learn'), body: t('Arabic letters step by step, and simple games for kids.'), go: () => nav.push('learn') },

@@ -148,7 +148,7 @@ export const LESSONS = [
   { id: 'letters', en: 'Letter shapes', sub: 'The 28 letters and their 4 shapes' },
   { id: 'join', en: 'Joining letters', sub: 'How letters join into words' },
   { id: 'words', en: 'Short words', sub: 'Read your first words' },
-  { id: 'read', en: 'Read a short surah', sub: 'Ayah by ayah, with the meaning' },
+  { id: 'read', en: 'Read a short chapter', sub: 'Verse by verse, with the meaning' },
   { id: 'memorise', en: 'Memorise', sub: 'Hide words and recite' },
 ];
 
