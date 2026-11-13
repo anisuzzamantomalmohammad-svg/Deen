@@ -97,7 +97,33 @@ const NIGHT_RED = NIGHT_PALETTES[0];
 
 // `daily` is the palette picked for this time of day (see theme/daily.js),
 // already split into a dark and a light version. `night` turns on warm amber.
-export function resolveTheme({ mode, darkId, lightId, systemScheme, prohibited, daily, night }) {
+// Glass, glow and arch colours for the 1.7 look, worked out from the palette.
+// `glow` is the soft light behind the sun or moon: the page colour, brightened.
+const hexRgb = (hex) => {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
+  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [40, 60, 60];
+};
+const toHex = (c) => `#${c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('')}`;
+export function withFx(th, reduce) {
+  const [r, g, b] = hexRgb(th.bg);
+  const k = 205 / Math.max(r, g, b, 1);
+  const L = th.isLight;
+  return {
+    ...th,
+    fx: !reduce,
+    glass: L ? 'rgba(255,255,255,0.62)' : 'rgba(255,255,255,0.065)',
+    glassLine: L ? 'rgba(255,255,255,0.95)' : rgba(th.ink, 0.15),
+    glow: L ? (th.sun || th.accent) : toHex([r * k, g * k, b * k]),
+    glowOp: reduce ? 0 : th.nightRed ? 0.16 : L ? 0.42 : 0.5,
+    deep: L ? '#FFFFFF' : toHex([r * 0.62, g * 0.62, b * 0.62]),
+    skyBody: L ? (th.sun || th.accent) : th.nightRed ? th.cardInk : '#F8F5EE',
+  };
+}
+
+export function resolveTheme(o) {
+  return withFx(resolveBase(o), o.reduceFx);
+}
+function resolveBase({ mode, darkId, lightId, systemScheme, prohibited, daily, night }) {
   const useLight = mode === 'light' || (mode === 'auto' && systemScheme === 'light');
   if (night) return typeof night === 'object' ? night : NIGHT_RED;
   let base;

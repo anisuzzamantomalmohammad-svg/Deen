@@ -12,6 +12,7 @@ import { shortDate } from '../ui/hooks';
 import { addDays } from '../lib/prayer';
 import { nowDate } from '../lib/clock';
 import { rangeStats } from '../lib/stats';
+import { isPausedDay } from '../lib/qada';
 
 export const FAST_REASONS = [
   { id: 'travelling', icon: 'navigation', label: 'Travelling' },
@@ -21,7 +22,7 @@ export const FAST_REASONS = [
 ];
 
 const keyOf = (d) => d.toDateString();
-export const isMissedFast = (data, d) => (data.missedFasts || []).some((m) => m.day === keyOf(d)) || !!(data.notFastingByDay || {})[keyOf(d)];
+export const isMissedFast = (data, d) => (data.missedFasts || []).some((m) => m.day === keyOf(d)) || !!(data.notFastingByDay || {})[keyOf(d)] || isPausedDay(data, d);
 
 // Said "not fasting" for a day (with a reason): it goes on the make-up list.
 export function notFastingPatch(p, d, reason) {

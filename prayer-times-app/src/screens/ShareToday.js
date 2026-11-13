@@ -34,6 +34,18 @@ export default function ShareTodaySheet({ onClose }) {
     t('Shared from Deen'),
   ].join('\n');
 
+  const save = async () => {
+    setBusy(true);
+    try {
+      const uri = await captureRef(ref, { format: 'png', quality: 1, result: 'tmpfile' });
+      const { saveToPhone } = require('../lib/save');
+      const res = await saveToPhone(app, uri, `Deen ${app.today.getFullYear()}-${app.today.getMonth() + 1}-${app.today.getDate()}.png`, 'image/png');
+      if (res !== 'cancelled') app.setToast(res === 'saved' ? t('Saved to your phone') : t('Could not save it'));
+    } catch (e) {
+      app.setToast(t('Could not save it'));
+    }
+    setBusy(false);
+  };
   const share = async () => {
     setBusy(true);
     try {
@@ -64,6 +76,12 @@ export default function ShareTodaySheet({ onClose }) {
       <PrimaryButton icon="image" label={t('Share as a picture')} onPress={() => month(tab, 'picture')} />
       <PrimaryButton ghost icon="file-text" label={t('Share as a PDF')} onPress={() => month(tab, 'pdf')} />
       <PrimaryButton ghost icon="type" label={t('Share as text')} onPress={() => month(tab, 'text')} />
+      {Platform.OS === 'android' ? (
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <PrimaryButton ghost style={{ flex: 1 }} icon="download" label={t('Save picture')} onPress={() => month(tab, 'savePicture')} />
+          <PrimaryButton ghost style={{ flex: 1 }} icon="download" label={t('Save PDF')} onPress={() => month(tab, 'savePdf')} />
+        </View>
+      ) : null}
     </View>
   );
   const seg = <Segmented style={{ marginBottom: 12 }} value={what} onChange={setWhat} options={[{ id: 'today', label: t('Today') }, { id: 'month', label: t('This month') }, { id: 'roza', label: t('Roza month') }]} />;
@@ -98,6 +116,7 @@ export default function ShareTodaySheet({ onClose }) {
         <Body size={10} color={th.faint} style={{ textAlign: 'center', marginTop: 10 }}>{t('Shared from Deen')}</Body>
       </View>
       <PrimaryButton style={{ marginTop: 14 }} icon="share-2" label={busy ? '…' : t('Share image')} onPress={share} disabled={busy} />
+      {Platform.OS === 'android' ? <PrimaryButton ghost style={{ marginTop: 8 }} icon="download" label={t('Save to phone')} onPress={save} disabled={busy} /> : null}
     </View>
   );
 }

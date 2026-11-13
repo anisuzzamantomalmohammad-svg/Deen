@@ -16,7 +16,7 @@ const COLS = [['Fajr', 'Fajr'], ['Sunrise', 'Rise'], ['Dhuhr', 'Dhuhr'], ['Asr',
 
 const fmtLen = (t, mins) => t('{h}h {m}m', { h: Math.floor(mins / 60), m: t.num(String(mins % 60).padStart(2, '0')) });
 
-export default function TimetableScreen({ tab: initialTab, autoShare, ramadan }) {
+export default function TimetableScreen({ tab: initialTab, autoShare, ramadan, basis: initialBasis }) {
   const app = useApp();
   const nav = useNav();
   const th = useTheme();
@@ -32,7 +32,7 @@ export default function TimetableScreen({ tab: initialTab, autoShare, ramadan })
     return mi <= 8 ? 8 - mi : 20 - mi;
   });
   // Months can follow the regular (English) calendar or the Hijri one.
-  const [basis, setBasis] = useState(ramadan || data.calMain === 'hijri' ? 'hijri' : 'regular');
+  const [basis, setBasis] = useState(initialBasis === 'regular' ? 'regular' : ramadan || initialBasis === 'hijri' || data.calMain === 'hijri' ? 'hijri' : 'regular');
   const hijriBasis = basis === 'hijri';
   const flip = () => { app.haptic(); setOffset(0); setBasis(hijriBasis ? 'regular' : 'hijri'); };
   const { step, style: slideStyle } = useSlide();
@@ -109,7 +109,7 @@ export default function TimetableScreen({ tab: initialTab, autoShare, ramadan })
     }
   };
   // The month as a PDF table: printable, and easy to send on WhatsApp.
-  const sharePdf = async () => {
+  const sharePdf = async (save) => {
     const esc = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;');
     const heads = tab === 'prayer' ? [t('Date'), ...COLS.map((c) => t(c[1]))] : [t('Date'), t('Seheri'), t('Iftar'), t('Length')];
     const cells = rows.map((r) => {
@@ -131,6 +131,7 @@ export default function TimetableScreen({ tab: initialTab, autoShare, ramadan })
       const Print = require('expo-print');
       if (Platform.OS === 'web') { await Print.printAsync({ html }); return; }
       const { uri } = await Print.printToFileAsync({ html });
+      if (save === true) { await saved(uri, 'pdf', 'application/pdf'); return; }
       const Sharing = require('expo-sharing');
       await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: t('Share') });
     } catch (e) {
@@ -140,13 +141,21 @@ export default function TimetableScreen({ tab: initialTab, autoShare, ramadan })
   // The month as a picture: the table with a small heading, captured as a PNG.
   const snapRef = useRef(null);
   const [snap, setSnap] = useState(false);
-  const shareImage = async () => {
+  // "Save to phone": into the folder picked the first time.
+  const saved = async (uri, ext, mime) => {
+    const { saveToPhone } = require('../lib/save');
+    const name = `Deen ${title}${tab === 'fasting' ? ' Seheri Iftar' : ''}`.replace(/[^\w\u0980-\u09FF -]+/g, ' ').trim();
+    const res = await saveToPhone(app, uri, `${name}.${ext}`, mime);
+    if (res !== 'cancelled') app.setToast(res === 'saved' ? t('Saved to your phone') : t('Could not save it'));
+  };
+  const shareImage = async (save) => {
     setSnap(true);
     await new Promise((res) => setTimeout(res, 250));
     try {
       if (Platform.OS === 'web') throw new Error('web');
       const { captureRef } = require('react-native-view-shot');
       const uri = await captureRef(snapRef, { format: 'png', quality: 1, result: 'tmpfile' });
+      if (save === true) { await saved(uri, 'png', 'image/png'); setSnap(false); return; }
       const Sharing = require('expo-sharing');
       await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: t('Share') });
     } catch (e) {
@@ -157,7 +166,7 @@ export default function TimetableScreen({ tab: initialTab, autoShare, ramadan })
   // Opened from "Share times" with a choice already made: share right away.
   React.useEffect(() => {
     if (!autoShare) return undefined;
-    const id = setTimeout(() => (autoShare === 'picture' ? shareImage() : autoShare === 'pdf' ? sharePdf() : shareText()), 700);
+    const id = setTimeout(() => (autoShare === 'picture' ? shareImage() : autoShare === 'pdf' ? sharePdf() : autoShare === 'savePicture' ? shareImage(true) : autoShare === 'savePdf' ? sharePdf(true) : shareText()), 700);
     return () => clearTimeout(id);
   }, []);
   const share = () => nav.openSheet('choice', {

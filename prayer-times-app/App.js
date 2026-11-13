@@ -61,6 +61,7 @@ const STACK_SCREENS = {
   qadaOlder: () => require('./src/screens/QadaScreens').QadaOlderScreen,
   surahs: () => require('./src/screens/Surahs').default,
   alertCheck: () => require('./src/screens/AlertCheck').default,
+  myDuas: () => require('./src/screens/Extra17').default,
   yearReview: () => require('./src/screens/YearReview').default,
 };
 

@@ -33,7 +33,7 @@ import { statusOf, qadaPrayedOn } from '../lib/qada';
 import { BirthdaySheet } from './DateConverter';
 import ShareTodaySheet from './ShareToday';
 import PrayerPage from './PrayerPage';
-import { NotConfirmed as NotConfirmedNote } from '../ui/kit';
+import { PauseSheet } from './Extra17';
 
 
 // Cities that can be picked with no internet or GPS (see data/cities.js).
@@ -754,7 +754,7 @@ function NightTimeSheet({ k }) {
     start = d.start;
     end = d.end;
     endWhy = t('Before Dhuhr');
-    text = t('Duha is a voluntary prayer of 2 to 8 rak\u2019ahs. Its time starts about 15 minutes after sunrise and lasts until shortly before Dhuhr.');
+    text = t('Duha is a voluntary prayer of 2 to 12 rak\u2019ahs. Its time starts about 15 minutes after sunrise and lasts until shortly before Dhuhr.');
   } else {
     const base = now < getDay(today).Fajr ? addDays(today, -1) : today;
     const n = nightOf(getDay(base), getDay(addDays(base, 1)));
@@ -772,14 +772,14 @@ function NightTimeSheet({ k }) {
     <View>
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <Card active style={{ flex: 1, padding: 12 }}>
-          <Label size={8.5}>{t('Starts')}</Label>
-          <Serif bold size={19} style={{ marginTop: 3 }}>{timeStr(t, start, tz)}</Serif>
-          <Body size={11} color={th.muted}>{k === 'duha' ? t('After sunrise') : t('Last third')}</Body>
+          <Label size={8.5}>{k === 'duha' ? t('Starts') : t('Time starts')}</Label>
+          <Serif bold size={19} style={{ marginTop: 3 }}>{k === 'duha' ? timeStr(t, start, tz) : t('After Isha')}</Serif>
+          <Body size={11} color={th.muted}>{k === 'duha' ? t('After sunrise') : timeStr(t, getDay(dayFor).Isha, tz)}</Body>
         </Card>
         <Card style={{ flex: 1, padding: 12 }}>
-          <Label size={8.5}>{t('Ends')}</Label>
-          <Serif bold size={19} style={{ marginTop: 3 }}>{timeStr(t, end, tz)}</Serif>
-          <Body size={11} color={th.muted}>{endWhy}</Body>
+          <Label size={8.5}>{k === 'duha' ? t('Ends') : t('Best from')}</Label>
+          <Serif bold size={19} style={{ marginTop: 3 }}>{timeStr(t, k === 'duha' ? end : start, tz)}</Serif>
+          <Body size={11} color={th.muted}>{k === 'duha' ? endWhy : t('Last third · ends {time}', { time: timeStr(t, end, tz, true) })}</Body>
         </Card>
       </View>
       <Para style={{ marginTop: 12 }}>{text}</Para>
@@ -788,13 +788,13 @@ function NightTimeSheet({ k }) {
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14, gap: 10 }}>
           <View style={{ flex: 1 }}>
             <Body size={13.5} weight="semi">{k === 'duha' ? t('Duha') : t('Tahajjud')}</Body>
-            <Body size={11} color={th.muted}>{k === 'duha' ? t('2 to 8, in pairs') : t('2 at a time, often 2 to 8')}</Body>
+            <Body size={11} color={th.muted}>{k === 'duha' ? t('2 to 12, in pairs · 8 is best') : t('2 at a time, often 8')}</Body>
           </View>
           <Press onPress={() => app.toggleSunnah(dayFor, k)} hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={k === 'duha' ? t('Prayed Duha today') : t('Prayed Tahajjud tonight')}><Tick done={done} /></Press>
         </View>
         {done ? (
           <View style={{ flexDirection: 'row', gap: 6, paddingHorizontal: 14, paddingBottom: 10 }}>
-            {[2, 4, 6, 8].map((n) => {
+            {(k === 'duha' ? [2, 4, 8, 12] : [2, 4, 6, 8]).map((n) => {
               const on = rakahN === n;
               return (
                 <Press key={n} onPress={() => setN(n)} style={[{ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 99, borderWidth: 1, borderColor: th.line }, on && { borderColor: th.ok, backgroundColor: 'rgba(75,191,138,0.14)' }]}>
@@ -814,7 +814,6 @@ function NightTimeSheet({ k }) {
           </>
         ) : null}
       </Card>
-      <NotConfirmedNote />
       {alertKey ? (
         <Card style={{ marginTop: 12, paddingVertical: 2 }}>
           <Row first icon="bell" label={t('Tahajjud reminder')} right={<Toggle value={!!app.data.tahajjudReminder} onChange={(v) => app.update({ tahajjudReminder: v })} />} />
@@ -1002,8 +1001,12 @@ export default function Sheets({ sheet, onClose }) {
       body = <PreviewSheet onClose={onClose} />;
       break;
     case 'whatsNew':
-      title = t("What's new in Deen {v}", { v: '1.6.0' });
+      title = t("What's new in Deen {v}", { v: '1.7.0' });
       body = <WhatsNewSheet onClose={onClose} />;
+      break;
+    case 'pause':
+      title = t('Pause prayers');
+      body = <PauseSheet onClose={onClose} />;
       break;
     case 'calibrate':
       title = t('Calibrate the compass');

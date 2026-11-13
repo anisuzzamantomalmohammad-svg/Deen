@@ -3,7 +3,7 @@
     "name": "Deen",
     "slug": "deen",
     "owner": "anisuzzaman_tamal",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "com.tomal.prayertimes",
-      "versionCode": 9,
+      "versionCode": 10,
       "icon": "./assets/icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",

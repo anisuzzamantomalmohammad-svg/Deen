@@ -85,19 +85,19 @@ export function PreviewBar() {
 }
 
 // "What's new": a few highlights, tap one to try it.
-export const WHATS_NEW_VERSION = '1.6.0';
+export const WHATS_NEW_VERSION = '1.7.0';
 export function WhatsNewSheet({ onClose }) {
   const app = useApp();
   const nav = useNav();
   const th = useTheme();
   const t = useT();
   const items = [
-    { icon: 'refresh-cw', title: t('Same on both phones'), body: t('Sign in with Google and your log stays the same on two phones.'), go: () => nav.openSheet('account') },
-    { icon: 'grid', title: t('Essentials'), body: t('Qibla, timetable, charity, tasbih and more, in one tab.'), go: () => nav.setTab('Essentials') },
-    { icon: 'check-circle', title: t('Did you pray it?'), body: t('Late, on time or not yet, with your sunnah ticks on each prayer.'), go: () => nav.setTab('Prayers') },
-    { icon: 'book', title: t('Quran reader'), body: t('The full Quran with Bangla and English, offline.'), go: () => nav.push('quran') },
-    { icon: 'type', title: t('Learn'), body: t('Arabic letters step by step, and simple games for kids.'), go: () => nav.push('learn') },
-    { icon: 'search', title: t('Ask Deen'), body: t('Ask anything and find the dua, guide or setting, offline.'), go: () => nav.push('ask') },
+    { icon: 'sun', title: t('A new look'), body: t('A glass arch on Home with the sun and the real moon.'), go: () => nav.setTab('Home') },
+    { icon: 'users', title: t('Jamaat times'), body: t('Add your mosque’s times and get an alert 10 minutes before.'), go: () => nav.push('settingsPage', { page: 'jamaat' }) },
+    { icon: 'pause-circle', title: t('Pause prayers'), body: t('For period days. Nothing counts as missed while paused.'), go: () => nav.openSheet('pause') },
+    { icon: 'book-open', title: t('Quran finish plan'), body: t('Pick 7, 30 or 60 days and see today’s verses.'), go: () => nav.push('quran') },
+    { icon: 'list', title: t('Qada plan'), body: t('Make up missed prayers a few each day.'), go: () => nav.setTab('Ibadah') },
+    { icon: 'edit-3', title: t('My duas'), body: t('Write your own duas and keep them in one place.'), go: () => nav.push('myDuas') },
   ];
   const done = () => {
     app.update({ whatsNewSeen: WHATS_NEW_VERSION });

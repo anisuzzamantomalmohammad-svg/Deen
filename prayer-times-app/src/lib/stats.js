@@ -82,10 +82,13 @@ const fullDay = (rec) => rec && ids.every((i) => rec[i]);
 
 // Current streak: consecutive days with all 5 on time, ending today (or
 // yesterday, if today isn't finished yet), and the best streak ever.
-export function streaks(completedByDay, today) {
+// Paused days (period) are stepped over: they neither break nor add to it.
+export function streaks(completedByDay, today, paused = () => false) {
   let current = 0;
-  let d = fullDay(completedByDay[today.toDateString()]) ? today : addDays(today, -1);
-  while (fullDay(completedByDay[d.toDateString()])) {
+  let d = fullDay(completedByDay[today.toDateString()]) || paused(today) ? today : addDays(today, -1);
+  for (let guard = 0; guard < 4000; guard++) {
+    if (paused(d)) { d = addDays(d, -1); continue; }
+    if (!fullDay(completedByDay[d.toDateString()])) break;
     current++;
     d = addDays(d, -1);
   }

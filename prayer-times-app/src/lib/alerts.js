@@ -5,7 +5,8 @@
 // the same thing.
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { computeDay, formatTime, addMinutes, PRAYER_NAMES, addDays, dayKeyOf, timeAdj } from './prayer';
+import { computeDay, formatTime, addMinutes, PRAYER_NAMES, addDays, dayKeyOf, timeAdj, jamaatTime, setHour24 } from './prayer';
+import { pauseCovers } from './qada';
 import { hijriFor, nextMonthBoundary, dayNumber, HIJRI_MONTHS, HIJRI_MONTHS_BN } from './hijri';
 import { prayerWindow, nightOf } from './waqt';
 import { eventsOnDay, eclipseOnDay } from './events';
@@ -75,6 +76,7 @@ export const fromYmd = (k) => {
 const atClock = (day, h, m = 0) => new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, m);
 
 export function planAlerts(s, today, cal, nowMs = Date.now()) {
+  setHour24(s.time24);
   const lang = s.lang || 'en';
   const T = (k, v) => translate(lang, k, v);
   const N = (x) => (lang === 'bn' ? bnDigits(x) : String(x));
@@ -128,9 +130,32 @@ export function planAlerts(s, today, cal, nowMs = Date.now()) {
           body: T('{name} is at {time}. Time to get ready.', { name: pName(name), time: ft(at) }),
         });
       }
+      // Jamaat at your masjid, 10 minutes before.
+      const jam = s.jamaatAlert ? jamaatTime(s, name, at) : null;
+      if (jam) {
+        add({
+          kind: 'pre', date: addMinutes(jam, -10), channel: CHANNEL_PRAYER, data: { name, day: ymd(day), jamaat: true },
+          title: T('{name} jamaat in 10 minutes', { name: pName(name) }),
+          body: T('Jamaat is at {time}.', { time: ft(jam) }),
+        });
+      }
+      const pw = prayerWindow(name, times, nextTimes);
+      const paused = pauseCovers(s, day, pw.end);
+      // "Time is ending, not ticked yet": 15 minutes before it (or its best part) ends.
+      if (s.endAlert && !paused && !ticked(day, name)) {
+        const deadline = pw.best ? pw.best.at : pw.end;
+        const when = addMinutes(deadline, -15);
+        if (when > pw.start) {
+          add({
+            kind: 'nudge', date: when, channel: CHANNEL_REMINDER, category: PRAYER_CATEGORY, data: { name, day: ymd(day), ending: true },
+            title: T('{name} ends in 15 minutes', { name: pName(name) }),
+            body: T('Not ticked yet.'),
+          });
+        }
+      }
       // "Did you pray?" a little before the time (or its best part) runs out.
-      if ((s.nudgeOn || {})[name] && !ticked(day, name)) {
-        const w = prayerWindow(name, times, nextTimes);
+      if ((s.nudgeOn || {})[name] && !paused && !ticked(day, name)) {
+        const w = pw;
         const deadline = w.best ? w.best.at : w.end;
         const when = addMinutes(deadline, -(s.nudgeLead || 30));
         if (when > w.start) {
@@ -428,6 +453,38 @@ export const alertId = (item) => `deen:${item.kind}:${(item.data && item.data.na
 // both start one). A second call waits for the first, then runs once more.
 let running = null;
 let again = null;
+// The line that stays in the notification bar: today's five times. Shown
+// straight away on a silent channel; it is refreshed when the app opens and
+// by the background job. Its kind is not in OUR_KINDS, so trimming leaves it.
+const BAR_ID = 'deen-bar';
+let barText = null;
+export async function updateBarLine(s, today) {
+  if (Platform.OS !== 'android') return;
+  try {
+    if (!s.barLine) {
+      if (barText !== '') await Notifications.dismissNotificationAsync(BAR_ID).catch(() => {});
+      barText = '';
+      return;
+    }
+    setHour24(s.time24);
+    const lang = s.lang || 'en';
+    const N = (x) => (lang === 'bn' ? bnDigits(x) : String(x));
+    const day = computeDay(s.coords, s.calcMethod, s.asrMethod, today, timeAdj(s));
+    const title = `${(lang === 'bn' ? WD_BN : WD_EN)[today.getDay()]} ${N(today.getDate())} ${(lang === 'bn' ? MO_BN : MO_EN)[today.getMonth()]} · ${translate(lang, 'Prayer times')}`;
+    const body = PRAYER_NAMES.map((n) => `${translate(lang, n)} ${N(formatTime(day[n], s.coords.timezone, { compact: true }))}`).join(' · ');
+    if (barText === title + body) return;
+    await Notifications.setNotificationChannelAsync('deen-bar', { name: translate(lang, 'Times in the notification bar'), importance: Notifications.AndroidImportance.LOW, sound: null, enableVibrate: false, showBadge: false });
+    await Notifications.scheduleNotificationAsync({
+      identifier: BAR_ID,
+      content: { title, body, sticky: true, autoDismiss: false, sound: false, data: { kind: 'bar' } },
+      trigger: { channelId: 'deen-bar' },
+    });
+    barText = title + body;
+  } catch (e) {
+    // best effort
+  }
+}
+
 export function scheduleAll(s, today, cal) {
   if (Platform.OS === 'web') return Promise.resolve('unsupported');
   if (running) {
@@ -459,6 +516,7 @@ async function scheduleOnce(s, today, cal) {
     return 'denied';
   }
   await ensureChannels(s.lang, s);
+  await updateBarLine(s, today);
   const plan = planAlerts(s, today, cal);
   const want = new Map(plan.map((item) => [alertId(item), item]));
   // Cancel anything no longer planned (old IDs from earlier versions too).

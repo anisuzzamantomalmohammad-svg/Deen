@@ -5,6 +5,7 @@ import { nowDate } from '../lib/clock';
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import Svg, { Circle } from 'react-native-svg';
 import { useApp } from '../state/store';
 import { useNav } from '../nav';
 import { useTheme, useT, Serif, Body, Label, Card, Press, Divider, Toggle, Row, SectionLabel, Tick, PrimaryButton, Input } from '../ui/kit';
@@ -102,28 +103,40 @@ function TimeCard({ name, date, w, now, friday }) {
   const answeredNow = st === 'ontime' || st === 'qada';
   const unanswered = !answeredNow && now >= w.end;
   const border = unanswered ? th.amber : answeredNow ? (st === 'ontime' ? th.ok : th.amber) : th.accentLine;
+  // Prohibited minutes inside this prayer's time (the red end of the bar).
+  const mk = makruhWindows(app.getDay(date)).find((m) => m.end > w.start && m.start < w.end && m.start > w.start);
+  const mkPct = mk ? (mk.start - w.start) / span : null;
+  const ringPct = notStarted ? 1 - Math.min(1, (w.start - now) / (3 * 3600000)) : 0;
   let head;
   if (notStarted) head = { label: t('Starts in'), value: countdownText(t, w.start - now), color: th.ink };
   else if (inside) head = { label: t('Ends in'), value: countdownText(t, w.end - now), color: w.end - now <= 15 * 60000 ? th.amber : th.ink };
   else head = { label: t('Ended'), value: t('{d} ago', { d: shortDuration(t, now - w.end) }), color: th.muted };
   return (
-    <Card active style={{ marginTop: 4, padding: 14, borderColor: border }}>
+    <Card active style={[{ marginTop: 4, padding: 14, borderColor: border }, st === 'ontime' && { backgroundColor: `${th.ok}22` }]}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <View>
           <Label size={8.5} color={unanswered ? th.amber : th.accent}>{head.label}</Label>
           <Serif bold size={26} color={head.color} style={{ marginTop: 2 }}>{head.value}</Serif>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
+          {notStarted ? (
+            <Svg width={46} height={46} style={{ marginBottom: 4 }}>
+              <Circle cx={23} cy={23} r={19} stroke={th.line} strokeWidth={4} fill="none" />
+              <Circle cx={23} cy={23} r={19} stroke={th.accent} strokeWidth={4} fill="none" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 19 * ringPct} ${2 * Math.PI * 19}`} transform="rotate(-90 23 23)" />
+            </Svg>
+          ) : null}
           {w.best ? <Body size={11} color={th.muted}>{t('Best before {time}', { time: timeStr(t, w.best.at, tz, true) })}</Body> : null}
           <Body size={11} color={th.muted}>{t('Ends {why}', { why: t(w.endWhy) })}</Body>
         </View>
       </View>
       {/* bar from start to end */}
-      <View style={{ height: 6, borderRadius: 3, backgroundColor: th.soft2, marginTop: 12, marginBottom: 6 }}>
+      {notStarted ? <View style={{ height: 10 }} /> : <View style={{ height: 6, borderRadius: 3, backgroundColor: th.soft2, marginTop: 12, marginBottom: 6 }}>
         {pct > 0 ? <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct * 100}%`, borderRadius: 3, backgroundColor: unanswered ? th.amber : th.accent }} /> : null}
         {bestPct !== null ? <View style={{ position: 'absolute', left: `${bestPct * 100}%`, top: -3, bottom: -3, width: 2, borderRadius: 1, backgroundColor: th.accent }} /> : null}
+        {mkPct !== null ? <View style={{ position: 'absolute', left: `${mkPct * 100}%`, right: 0, top: 0, bottom: 0, borderRadius: 3, backgroundColor: th.red, opacity: 0.55 }} /> : null}
         {inside ? <View style={{ position: 'absolute', left: `${pct * 100}%`, top: -4, width: 14, height: 14, marginLeft: -7, borderRadius: 7, backgroundColor: th.sun, borderWidth: 3, borderColor: th.sheet }} /> : null}
-      </View>
+      </View>}
+      {mk && !notStarted ? <Body size={10.5} color={th.red} style={{ textAlign: 'right', marginBottom: 2 }}>{t('Prohibited from {time}', { time: timeStr(t, mk.start, tz, true) })}</Body> : null}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
         <Body size={11} color={th.muted}>{timeStr(t, w.start, tz, true)}</Body>
         <Body size={11} color={th.muted}>{t('{d} long', { d: shortDuration(t, span) })}</Body>
@@ -188,7 +201,7 @@ function AnswerBlock({ name, date, w, now, st, friday }) {
   const saveLate = (day) => {
     app.setStatus(date, name, 'qada', { on: ymd(day), reason, note: reason === 'other' ? note.trim() : '', late: true });
     app.haptic('success');
-    app.setToast(t('{name} saved as late', { name: t(name) }));
+    app.setToast({ message: t('{name} saved as late', { name: t(name) }), action: { label: t('Undo'), onPress: () => app.setStatus(date, name, 'missed') } });
   };
   return (
     <View>
@@ -364,7 +377,6 @@ export function RakahCard({ name, date }) {
       ) : (
   <Body size={11} color={th.faint} style={{ marginTop: 6 }}>{t('Fard is ticked by the main circle. The strongly recommended sunnah and Witr are ticked with it; tick the others yourself.')}</Body>
       )}
-      <NotConfirmed />
     </View>
   );
 }

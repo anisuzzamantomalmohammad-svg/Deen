@@ -5,14 +5,16 @@ import { Feather } from '@expo/vector-icons';
 import { useApp } from '../state/store';
 import { useNav } from '../nav';
 import { useTheme, useT, Serif, Body, Label, Arabic, Press, Card, PatternBand, Divider, Tick, NotConfirmed } from '../ui/kit';
+import { skyFor, isFastingDay } from '../lib/sky';
 import { Arch, SunArc, MoonPhase } from '../ui/parts';
 import { useNow, useLayout, longDate, hijriLabel, countdownText, mmss, timeStr, shortDuration, HIJRI_MONTHS_AR, hijriMonthName } from '../ui/hooks';
-import { PRAYER_NAMES, PRAYER_AR, addDays, addMinutes, makruhWindows, computeDay, zonedParts, timeAdj } from '../lib/prayer';
+import { PauseBanner, FridayCard, WeekCard, All5Card } from './Extra17';
+import { PRAYER_NAMES, PRAYER_AR, addDays, addMinutes, makruhWindows, computeDay, zonedParts, timeAdj, jamaatTime } from '../lib/prayer';
 import { isHijriBirthday, hijriAge } from '../lib/birthday';
 import { nextMonthBoundary } from '../lib/hijri';
 import { upcomingEvents } from '../lib/events';
 import { eventTitle } from '../data/eventText';
-import { nightOf, duhaOf } from '../lib/waqt';
+import { nightOf, duhaOf, prayerWindow } from '../lib/waqt';
 import { DUAS } from '../data/duas';
 import { fastingDayInfo } from '../lib/alerts';
 import { homeCardOrder } from '../lib/homeCards';
@@ -65,8 +67,8 @@ export default function HomeScreen() {
   const look = homeLook(app);
   const fw = fastingWindow(app, now);
 
-  const archW = Math.min(L.width * 0.56, 232);
-  const archH = archW * 1.22;
+  const archW = Math.min(L.width * 0.74, 300);
+  const archH = archW * 1.2;
 
   const events = useMemo(() => upcomingEvents(today, hijri, 60, { history: false, coords: app.coords, eclipses: app.data.showEclipses !== false }), [today, hijri, app.coords, app.data.showEclipses]);
   const nextEvent = events[0];
@@ -96,7 +98,7 @@ export default function HomeScreen() {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={{ paddingBottom: L.bottomSpace }} showsVerticalScrollIndicator={false}>
-        <PatternBand height={archH + 150 + L.insets.top + (ramadan || look === 'kaaba' ? 30 : 0)} variant={look} />
+        <PatternBand height={archH + 260 + L.insets.top + (ramadan || look === 'kaaba' ? 30 : 0)} variant={look} />
         <View style={{ paddingTop: L.insets.top + 14, paddingHorizontal: L.pad, alignItems: 'center' }}>
           {/* Location, date, Hijri date */}
           <Press onPress={() => nav.openSheet('location')} hitSlop={8} accessibilityLabel={t('Change location')} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -107,7 +109,7 @@ export default function HomeScreen() {
             <Feather name="chevron-down" size={15} color={th.muted} />
           </Press>
           <Body size={11} weight="semi" style={{ letterSpacing: 0.5, marginTop: 2 }}>{longDate(t.lang, today)}</Body>
-          <Press onPress={() => nav.setTab('Hijri')} style={{ marginTop: 7, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 11, paddingVertical: 4, borderRadius: 99, borderWidth: 1, borderColor: th.accentLine, backgroundColor: th.isLight ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.35)' }}>
+          <Press onPress={() => nav.setTab('Hijri')} style={{ marginTop: 7, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 11, paddingVertical: 4, borderRadius: 99, borderWidth: 1, borderColor: th.glassLine, backgroundColor: th.glass }}>
             <Body size={10.5} weight="semi" color={th.accent}>{`${hijriLabel(t.lang, hNow)}${app.afterMaghrib ? ` · ${t('from Maghrib')}` : ''}`}</Body>
             <Arabic size={11.5} color={th.accent} style={{ lineHeight: 18 }}>{HIJRI_MONTHS_AR[hNow.monthIndex]}</Arabic>
           </Press>
@@ -129,6 +131,8 @@ export default function HomeScreen() {
 
         <View style={{ paddingHorizontal: L.pad, marginTop: 16 }}>
           <Notice now={now} />
+          <PauseBanner />
+          <WeekCard now={now} />
           <NeedsAnswerCard now={now} />
 
           {showMoon ? (
@@ -139,8 +143,8 @@ export default function HomeScreen() {
                   <Body size={13} weight="semi">{boundary.prevLength === 29 ? t('New moon expected tonight') : t('New moon unlikely tonight')}</Body>
                   <Body size={11.5} color={th.muted}>
                     {boundary.prevLength === 29
-                      ? t('{month} likely starts tomorrow.', { month: hijriMonthName(t.lang, boundary.monthIndex) })
-                      : t('{month} likely starts the day after tomorrow.', { month: hijriMonthName(t.lang, boundary.monthIndex) })}
+                      ? t(app.afterMaghrib ? '{month} started at Maghrib tonight. Tomorrow is the 1st.' : '{month} likely starts tonight at Maghrib. Tomorrow is the 1st.', { month: hijriMonthName(t.lang, boundary.monthIndex) })
+                      : t('{month} likely starts tomorrow at Maghrib.', { month: hijriMonthName(t.lang, boundary.monthIndex) })}
                   </Body>
                 </View>
               </View>
@@ -189,8 +193,9 @@ function ArchBlock({ now, width, height }) {
   const eid = (h.monthIndex === 9 && h.day === 1) || (h.monthIndex === 11 && h.day === 10);
   const eidMorning = eid && now >= app.getDay(app.today).Fajr && now < app.getDay(app.today).Dhuhr && a.mode === 'next';
   const safarQasr = app.data.travelConfirmed && ['Dhuhr', 'Asr', 'Isha'].includes(a.name) && (a.mode === 'current' || a.mode === 'next');
-  const ink = th.cardInk;
-  const amber = a.amber ? (th.isLight ? '#FFE3A8' : th.amber) : ink;
+  const ink = th.ink;
+  const amber = a.amber ? th.amber : ink;
+  const sky = skyFor({ now, today: app.today, getDay: app.getDay, hijri: app.hijri, data: app.data, latitude: app.coords.latitude });
   const onPress = () => {
     if (a.mode === 'current' || a.mode === 'next') nav.openSheet('prayer', { name: a.name, date: a.day });
     else nav.push('fasting', { tab: 'today' });
@@ -199,12 +204,12 @@ function ArchBlock({ now, width, height }) {
   const bigName = a.mode === 'current' || a.mode === 'next' ? t(a.name) : a.mode === 'iftarNow' ? t('Iftar time') : t(a.title);
   const fastN = a.mode === 'iftarNow' && a.fastN ? t('Fast {n} done', { n: a.fastN }) : null;
   const line = (x, i) => {
-    const base = { marginTop: 7, paddingTop: 6, borderTopWidth: 1, borderColor: th.isLight ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: width - 30 };
+    const base = { marginTop: 7, paddingTop: 6, borderTopWidth: 1, borderColor: th.line, flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: width - 30 };
     if (x.kind === 'didYouPray') {
       return (
         <Press key={i} onPress={() => nav.openSheet('prayer', { name: x.prayer.name, date: x.prayer.day })} style={base} hitSlop={6}>
-          <Feather name="help-circle" size={10} color={th.isLight ? '#FFE3DC' : th.red} />
-          <Label size={8.5} numberOfLines={1} color={th.isLight ? '#FFE3DC' : th.red}>{t('{name} ended at {time} · Did you pray it?', { name: t(x.prayer.name), time: timeStr(t, x.prayer.end, tz, true) })}</Label>
+          <Feather name="help-circle" size={10} color={th.red} />
+          <Label size={8.5} numberOfLines={1} color={th.red}>{t('{name} ended at {time} · Did you pray it?', { name: t(x.prayer.name), time: timeStr(t, x.prayer.end, tz, true) })}</Label>
         </Press>
       );
     }
@@ -226,19 +231,18 @@ function ArchBlock({ now, width, height }) {
     if (x.kind === 'tahajjud') {
       return (
         <Press key={i} onPress={() => nav.openSheet('nightTime', { k: 'tahajjud' })} style={base} hitSlop={6}>
-          <Label size={8.5} color={ink} style={{ opacity: 0.85 }}>{x.done ? t('Tahajjud prayed') : t('Tahajjud from {time}', { time: timeStr(t, x.at, tz, true) })}</Label>
+          <Label size={8.5} color={ink} style={{ opacity: 0.85 }}>{x.done ? t('Tahajjud prayed') : t('Tahajjud best from {time}', { time: timeStr(t, x.at, tz, true) })}</Label>
         </Press>
       );
     }
     return null;
   };
   return (
-    <Arch width={width} height={height} progress={Math.max(0, Math.min(1, a.progress || 0))} cycleKey={`${a.mode}${a.name || ''}${a.to ? a.to.getTime() : ''}`} onPress={onPress}>
-      {h.monthIndex === 8 ? <View style={{ position: 'absolute', top: -width * 0.13 }}><MoonPhase hDay={h.day} size={22} fill={th.accent} /></View> : null}
-      <Label color={a.amber ? amber : ink} style={{ opacity: a.amber ? 1 : 0.7 }}>{title}</Label>
-      <Arabic size={width * 0.13} color={th.arcAr} style={{ marginTop: 2, lineHeight: width * 0.2 }}>{a.ar}</Arabic>
-      <Serif size={width * 0.13} color={ink} style={{ lineHeight: width * 0.15 }}>{bigName}</Serif>
-      {a.to ? <Serif bold size={width * 0.165} color={a.amber ? amber : ink} style={{ marginTop: 2 }}>{countdownText(t, a.to - now)}</Serif> : null}
+    <Arch width={width} height={height} progress={Math.max(0, Math.min(1, a.progress || 0))} cycleKey={`${a.mode}${a.name || ''}${a.to ? a.to.getTime() : ''}`} onPress={onPress} sky={sky}>
+      <Label color={a.amber ? amber : th.muted} style={{ letterSpacing: 2 }}>{title}</Label>
+      <Arabic size={width * 0.105} color={th.accent} style={{ marginTop: 1, lineHeight: width * 0.155 }}>{a.ar}</Arabic>
+      <Serif size={width * 0.095} color={th.muted} style={{ lineHeight: width * 0.115 }}>{bigName}</Serif>
+      {a.to ? <Serif bold size={width * 0.17} color={a.amber ? amber : ink} style={{ lineHeight: width * 0.2 }}>{countdownText(t, a.to - now)}</Serif> : null}
       {fastN ? <Serif bold size={width * 0.1} color={ink} style={{ marginTop: 4 }}>{fastN}</Serif> : null}
       {a.mode === 'current' ? (
         <Label color={a.amber ? amber : ink} style={{ opacity: a.amber ? 1 : 0.7, marginTop: 2, maxWidth: width * 0.84, textAlign: 'center' }} numberOfLines={2}>{`${t('Ends in')} · ${t(a.note)}`}</Label>
@@ -250,16 +254,16 @@ function ArchBlock({ now, width, height }) {
         <Label size={8} color={ink} style={{ opacity: 0.6, marginTop: 4 }}>{t('Next: {name} {time}', { name: t(a.nextLine.name), time: timeStr(t, a.nextLine.at, tz, true) })}</Label>
       ) : null}
       {makruh ? (
-        <View style={{ marginTop: 9, paddingTop: 7, borderTopWidth: 1, borderColor: th.isLight ? 'rgba(255,255,255,0.35)' : 'rgba(179,38,30,0.25)', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Feather name="alert-triangle" size={10} color={th.isLight ? '#FFE3DC' : '#B3261E'} />
-          <Label color={th.isLight ? '#FFE3DC' : '#B3261E'} size={8.5}>{t('Prohibited · ends in {t}', { t: mmss(t, makruh.end - now) })}</Label>
+        <View style={{ marginTop: 9, paddingTop: 7, borderTopWidth: 1, borderColor: th.redSoft, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Feather name="alert-triangle" size={10} color={th.red} />
+          <Label color={th.red} size={8.5}>{t('Prohibited · ends in {t}', { t: mmss(t, makruh.end - now) })}</Label>
         </View>
       ) : null}
       {(a.lines || []).slice(0, makruh ? 1 : 2).map(line)}
     </Arch>
   );
 }
-const amberInk = (th) => (th.isLight ? '#FFE3A8' : th.amber);
+const amberInk = (th) => th.amber;
 
 /* ------------------------------ Prayer row ------------------------------ */
 // Tap the circle to tick, tap the name or time to open the prayer page.
@@ -271,9 +275,10 @@ export function CircleMark({ state, size = 20, two }) {
   const th = useTheme();
   const map = {
     notYet: { border: th.faint, dashed: true, op: 0.55 },
+    paused: { border: th.faint, dashed: false, op: 0.5, icon: 'pause', fg: th.faint },
     open: { border: th.ink, dashed: false },
     unanswered: { border: th.amber, dashed: true },
-    ontime: { bg: th.ok, border: th.ok, icon: 'check', fg: '#fff' },
+    ontime: { bg: th.ok, border: th.ok, icon: 'check', fg: th.isLight ? '#fff' : th.bg },
     late: { bg: th.amber, border: th.amber, icon: 'rotate-ccw', fg: '#2a1a05' },
     missed: { bg: th.red, border: th.red, icon: 'x', fg: '#fff' },
   }[state] || { border: th.faint };
@@ -310,42 +315,55 @@ function PrayerRow({ now }) {
   };
   const onCircle = (name, st) => {
     const jumuah = friday && name === 'Dhuhr';
-    if (st === 'open' && !jumuah) tick(name);
+    if (st === 'paused') nav.openSheet('pause');
+    else if (st === 'open' && !jumuah) tick(name);
     else nav.openSheet('prayer', { name, date: day });
   };
 
+  const prayed = PRAYER_NAMES.filter((n) => ['ontime', 'late'].includes(circleState(app, day, n, now))).length;
+  const next = app.getDay(addDays(day, 1));
+  const adj = timeAdj(app.data) || {};
   return (
-    <View style={{ marginTop: 14 }}>
-      {nightRow ? <Label size={8} style={{ marginBottom: 6, marginHorizontal: 2 }}>{t('{day} night', { day: t(['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day.getDay()]) })}</Label> : null}
-      <View style={{ flexDirection: 'row', gap: 6 }}>
+    <View style={{ marginTop: 18 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginHorizontal: 4, marginBottom: 8 }}>
+        <Label>{nightRow ? t('{day} night', { day: t(['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day.getDay()]) }) : t('Today’s prayers')}</Label>
+        <Body size={11.5} color={th.muted}>{prayed === 5 ? t('All 5 prayed') : t('{n} of 5 prayed', { n: prayed })}</Body>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 6, alignItems: 'flex-start' }}>
         {PRAYER_NAMES.map((name) => {
           const st = circleState(app, day, name, now);
           const isHi = hi === name;
           const label = friday && name === 'Dhuhr' ? t("Jumu'ah") : t(name);
           const two = !!data.travelConfirmed && ['Dhuhr', 'Asr', 'Isha'].includes(name);
           const dim = (st === 'ontime' || st === 'late' || st === 'missed') && !isHi;
+          // one extra line at most: when its time ends (while it's on), else the jamaat time, else "adj."
+          const w = prayerWindow(name, times, next);
+          const on = now >= w.start && now < w.end;
+          const jam = jamaatTime(data, name, times[name]);
+          const extra = on ? t('till {time}', { time: timeStr(t, w.end, tz, true) }) : jam ? t('J {time}', { time: timeStr(t, jam, tz, true) }) : adj[name] ? t('adj.') : null;
           return (
             <View
               key={name}
               style={[
-                { flex: 1, alignItems: 'center', borderRadius: 15, borderWidth: 1, borderColor: th.line, backgroundColor: th.soft, overflow: 'hidden' },
-                isHi && { borderColor: th.accent, backgroundColor: th.accentSoft },
-                dim && { opacity: 0.72 },
+                { flex: 1, alignItems: 'center', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, borderWidth: 1, borderColor: th.glassLine, backgroundColor: th.glass, overflow: 'hidden' },
+                isHi && { borderColor: th.accent, backgroundColor: th.accentSoft, marginTop: -4 },
+                dim && { opacity: 0.78 },
               ]}
             >
-              <Press onPress={() => nav.openSheet('prayer', { name, date: day })} scaleTo={0.97} accessibilityLabel={`${label} ${timeStr(t, times[name], tz)}`} style={{ alignSelf: 'stretch', alignItems: 'center', paddingTop: 9 }}>
-                <Label size={7.5} color={isHi ? th.accent : th.muted} numberOfLines={1} adjustsFontSizeToFit style={{ paddingHorizontal: 2 }}>{label}</Label>
-                <Serif bold size={15} numberOfLines={1} adjustsFontSizeToFit color={isHi ? th.accent : th.ink} style={{ marginTop: 3, marginBottom: (timeAdj(app.data) || {})[name] ? 0 : 4, paddingHorizontal: 3 }}>{timeStr(t, times[name], tz, true)}</Serif>
-                {(timeAdj(app.data) || {})[name] ? <Body size={8} weight="bold" color={th.accent} style={{ marginTop: -1, marginBottom: 2 }}>{t('adj.')}</Body> : null}
+              <Press onPress={() => nav.openSheet('prayer', { name, date: day })} scaleTo={0.97} accessibilityLabel={`${label} ${timeStr(t, times[name], tz)}`} style={{ alignSelf: 'stretch', alignItems: 'center', paddingTop: 10 }}>
+                <Label size={8} color={isHi ? th.accent : th.muted} numberOfLines={1} adjustsFontSizeToFit style={{ paddingHorizontal: 2 }}>{label}</Label>
+                <Serif bold size={16} numberOfLines={1} adjustsFontSizeToFit color={th.ink} style={{ marginTop: 3, paddingHorizontal: 3 }}>{timeStr(t, times[name], tz, true)}</Serif>
+                <Body size={8.5} weight="bold" color={th.accent} numberOfLines={1} adjustsFontSizeToFit style={{ height: 12, lineHeight: 12, paddingHorizontal: 2 }}>{extra || ' '}</Body>
               </Press>
-              <Press onPress={() => onCircle(name, st)} hitSlop={6} accessibilityRole="checkbox" accessibilityState={{ checked: st === 'ontime' || st === 'late' }} accessibilityLabel={t('{name} circle', { name: label })} style={{ paddingBottom: 9, paddingTop: 2, paddingHorizontal: 10 }}>
-                <CircleMark state={st} two={two} />
+              <Press onPress={() => onCircle(name, st)} hitSlop={6} accessibilityRole="checkbox" accessibilityState={{ checked: st === 'ontime' || st === 'late' }} accessibilityLabel={t('{name} circle', { name: label })} style={{ paddingBottom: 10, paddingTop: 3, paddingHorizontal: 8 }}>
+                <CircleMark state={st} two={two} size={26} />
               </Press>
             </View>
           );
         })}
       </View>
       {showHint ? <Body size={10.5} color={th.faint} style={{ textAlign: 'center', marginTop: 6 }}>{t('Tap the circle to tick · tap the name for details')}</Body> : null}
+      {!nightRow ? <All5Card prayed={prayed} onTime={PRAYER_NAMES.filter((n) => circleState(app, day, n, now) === 'ontime').length} /> : null}
     </View>
   );
 }
@@ -359,8 +377,25 @@ function NeedsAnswerCard({ now }) {
   const th = useTheme();
   const t = useT();
   const tz = app.coords.timezone;
-  const list = needsAnswer(app, now, { days: 2 }).slice(0, 3);
+  const all = needsAnswer(app, now, { days: 2 });
+  const list = all.slice(0, 3);
   if (!list.length) return null;
+  // Three or more: one row of chips, oldest first, so the card stays small.
+  if (all.length >= 3) {
+    return (
+      <Card style={{ marginTop: 10, padding: 14, borderColor: th.amber }}>
+        <Label size={8} color={th.amber}>{t('Did you pray these? · {n}', { n: all.length })}</Label>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+          {all.slice(0, 8).reverse().map((x) => (
+            <Press key={`${x.date.toDateString()}${x.name}`} onPress={() => nav.openSheet('prayer', { name: x.name, date: x.date })} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 99, borderWidth: 1, borderColor: x.state === 'missed' ? th.red : th.amber }}>
+              <Body size={12.5} weight="semi" color={x.state === 'missed' ? th.red : th.amber}>{x.date.getTime() === app.today.getTime() ? t(x.name) : `${t(x.name)} · ${t('Yesterday')}`}</Body>
+            </Press>
+          ))}
+        </View>
+        <Body size={11} color={th.faint} style={{ marginTop: 8 }}>{t('Tap one to answer.')}</Body>
+      </Card>
+    );
+  }
   const word = (d) => (d.getTime() === app.today.getTime() ? t('Today') : d.getTime() === addDays(app.today, -1).getTime() ? t('Yesterday') : longDate(t.lang, d));
   return (
     <Card style={{ marginTop: 10, paddingVertical: 4, borderColor: th.amber }}>
@@ -599,7 +634,7 @@ function ExtraTimes({ now }) {
   const cells = [
     { k: 'Duha', v: `${timeStr(t, duha.start, tz, true)}–${timeStr(t, duha.end, tz, true)}`, sheet: 'duha', done: app.isSunnahDone(app.today, 'duha') },
     { k: 'Midnight', v: timeStr(t, night.midnight, tz), info: t("Islamic midnight, halfway between Maghrib and Fajr. Isha is best prayed before it. After that Isha is still valid until Fajr, but delaying it without a reason is disliked.") },
-    { k: 'Tahajjud', v: timeStr(t, night.lastThird, tz), sheet: 'tahajjud', done: app.isSunnahDone(base, 'tahajjud') },
+    { k: 'Tahajjud', v: t('best {time}', { time: timeStr(t, night.lastThird, tz) }), sheet: 'tahajjud', done: app.isSunnahDone(base, 'tahajjud') },
   ];
   return (
     <View style={{ flexDirection: 'row', marginTop: 10, borderWidth: 1, borderColor: th.line, borderRadius: 14, overflow: 'hidden' }}>
@@ -633,7 +668,7 @@ export function isTicked(app, day, item) {
   if (item.tick === 'fast') return !!(app.data.journalByDay[day.toDateString()] || {}).fasted;
   if (item.tick.startsWith('sunnah:')) return app.isSunnahDone(day, item.tick.slice(7));
   // "Ask Allah for forgiveness 100 times" is the same as the Daily dhikr Astaghfirullah row.
-  if (item.tick === 'today:istighfar') return (((app.data.dhikrByDay || {})[day.toDateString()] || {}).istighfar || 0) >= 100 || !!((app.data.todayTicks || {})[day.toDateString()] || {}).istighfar;
+  if (item.tick === 'today:istighfar') return (((app.data.dhikrByDay || {})[app.dhikrDayOf(day).toDateString()] || {}).istighfar || 0) >= 100;
   return !!((app.data.todayTicks || {})[day.toDateString()] || {})[item.tick.slice(6)];
 }
 export function toggleTick(app, day, item) {
@@ -643,11 +678,15 @@ export function toggleTick(app, day, item) {
   const id = item.tick.slice(6);
   if (item.tick === 'today:istighfar') {
     const on = !isTicked(app, day, item);
-    return app.update((p) => ({
-      dhikrByDay: { ...(p.dhikrByDay || {}), [k]: { ...((p.dhikrByDay || {})[k] || {}), istighfar: on ? 100 : 0 } },
-      todayTicks: { ...(p.todayTicks || {}), [k]: { ...((p.todayTicks || {})[k] || {}), istighfar: on } },
-      dirtyAt: Date.now(),
-    }));
+    const dk = app.dhikrDayOf(day).toDateString();
+    return app.update((p) => {
+      const had = ((p.dhikrByDay || {})[dk] || {}).istighfar || 0;
+      return {
+        dhikrByDay: { ...(p.dhikrByDay || {}), [dk]: { ...((p.dhikrByDay || {})[dk] || {}), istighfar: on ? 100 : 0 } },
+        tasbih: { ...p.tasbih, total: (p.tasbih.total || 0) + (on ? Math.max(0, 100 - had) : 0) },
+        dirtyAt: Date.now(),
+      };
+    });
   }
   return app.update((p) => ({ todayTicks: { ...(p.todayTicks || {}), [k]: { ...((p.todayTicks || {})[k] || {}), [id]: !((p.todayTicks || {})[k] || {})[id] } }, dirtyAt: Date.now() }));
 }
@@ -924,7 +963,6 @@ function Takbir() {
       <Label size={8}>{t('Takbir al-Tashreeq')}</Label>
       <Arabic size={18} style={{ textAlign: 'right', marginTop: 4 }}>{TAKBIR}</Arabic>
       <Body size={11} color={th.muted}>{t('After each Fard prayer from Fajr on the 9th to Asr on the 13th.')}</Body>
-      <NotConfirmed />
     </View>
   );
 }
@@ -1130,7 +1168,6 @@ function Notice({ now }) {
           <Btn label={t('No')} onPress={() => app.update({ safarDeclined: true })} />
           <Btn label={t("I'm home now")} onPress={() => { app.update({ homeBase: { ...app.gps.coords, name: app.locationName }, travelConfirmed: null }); app.setToast(t('Saved {name} as home', { name: app.locationName })); }} />
         </View>
-        <NotConfirmed />
       </View>
     );
   } else if (n.kind === 'safar15') {

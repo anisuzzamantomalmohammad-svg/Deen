@@ -7,7 +7,7 @@ import { DailyDhikrCard } from './Dhikr';
 import { QuranBody } from './Quran';
 import { HScroll } from '../ui/swipe';
 import { useNav } from '../nav';
-import { useTheme, useT, Serif, Body, Label, Card, Press, Arabic, Segmented, Chip, Input, Tick, SectionLabel, Empty, Row } from '../ui/kit';
+import { useTheme, useT, Serif, Body, Label, Card, Press, Arabic, Segmented, Chip, Input, Tick, SectionLabel, Empty, Row, RingHead, PatternBand } from '../ui/kit';
 import { ScreenTitle } from '../ui/parts';
 import { useLayout, timeStr, shortDate, hijriLabel } from '../ui/hooks';
 import { addDays, addMinutes } from '../lib/prayer';
@@ -20,6 +20,7 @@ import { calendarMissed, olderTotal, qadaHistory } from '../lib/qada';
 import { needsAnswer } from '../lib/homeLogic';
 import { CircleMark } from './Home';
 import { dayWord } from './QadaParts';
+import { QadaPlanCard } from './Extra17';
 import { JUMUAH_AYAH } from '../data/quranSnippets';
 import { GUIDES, GUIDE_GROUPS } from '../data/guides';
 import { SURAHS } from '../data/surahs';
@@ -54,7 +55,7 @@ function DailyView() {
   // Tahajjud belongs to the night: before Fajr it's last night's.
   const nightDay = now < app.getDay(today).Fajr ? addDays(today, -1) : today;
   const items = [
-    { key: 'tahajjud', info: 'tahajjud', icon: 'moon', win: fmt(w.tahajjud[0], w.tahajjud[1]), day: nightDay },
+    { key: 'tahajjud', info: 'tahajjud', icon: 'moon', win: t('After Isha · best from {time}', { time: timeStr(t, w.tahajjud[0], w.tz) }), day: nightDay },
     { key: 'duha', info: 'duha', icon: 'sun', win: fmt(w.duha[0], w.duha[1]), day: today },
     { key: 'dhikr', info: 'adhkar', icon: 'repeat', win: t('After Fajr and after Asr'), day: today },
     ...(!ramadan ? [{ key: 'roja', info: 'fast', icon: 'sunrise', win: t('Seheri to Iftar'), day: today }] : []),
@@ -69,7 +70,7 @@ function DailyView() {
 
   return (
     <View>
-      <SectionLabel right={<Label>{t('{n} of {m}', { n: doneCount, m: items.length })}</Label>}>{t('Sunnah & nawafil')}</SectionLabel>
+      <RingHead done={doneCount} total={items.length} title={t('Sunnah & nawafil')} sub={doneCount >= items.length ? t('All done today') : t('{n} more today', { n: items.length - doneCount })} style={{ marginTop: 16 }} />
       <Card style={{ paddingVertical: 2 }}>
         {items.map((it, i) => (
           <View key={it.key}>
@@ -93,6 +94,7 @@ function DailyView() {
       </Card>
 
       <DailyDhikrCard />
+          <QadaPlanCard />
       <JumuahTracker />
 
       {/* Qada: the newest 3 prayers still to answer, then one card for everything else. */}
@@ -303,8 +305,8 @@ function DuaCard({ d, fav, onFav }) {
         </Press>
       </View>
       <Serif size={16} style={{ marginTop: 2 }}>{dt.title}</Serif>
-      <Arabic size={20} style={{ textAlign: 'right', marginTop: 4 }} numberOfLines={3}>{d.arabic}</Arabic>
-      <Body size={12.5} color={th.muted} numberOfLines={2}>{dt.translation}</Body>
+      <Arabic size={18} color={th.muted} style={{ textAlign: 'right', marginTop: 2 }} numberOfLines={1}>{d.arabic}</Arabic>
+      <Body size={12.5} color={th.muted} numberOfLines={1}>{dt.translation}</Body>
       {dt.untranslated ? <Body size={10.5} color={th.faint} style={{ marginTop: 3 }}>{t('English meaning · Bangla not added yet')}</Body> : null}
     </Card>
   );
@@ -339,6 +341,7 @@ export default function IbadahScreen() {
 
   const header = (
     <View>
+      <PatternBand height={300 + L.insets.top} style={{ top: -(L.insets.top + 16), left: -L.pad, right: -L.pad }} />
       <ScreenTitle
         title={t('Ibadah')} arabic="عبادة" sub={t('Your daily worship')}
         right={(
@@ -358,6 +361,14 @@ export default function IbadahScreen() {
       {tab === 'quran' ? <QuranBody /> : null}
       {tab === 'duas' ? (
         <View style={{ marginTop: 14 }}>
+          <Card onPress={() => nav.push('myDuas')} style={{ marginBottom: 10, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Feather name="edit-3" size={18} color={th.accent} />
+            <View style={{ flex: 1 }}>
+              <Body size={14} weight="semi">{t('My duas')}</Body>
+              <Body size={11.5} color={th.muted}>{(app.data.myDuas || []).length ? t('{n} written by you', { n: (app.data.myDuas || []).length }) : t('Write your own duas')}</Body>
+            </View>
+            <Feather name="chevron-right" size={16} color={th.faint} />
+          </Card>
           <Input value={q} onChangeText={setQ} placeholder={t('Search {n} duas (e.g. sleep, travel, rain)', { n: DUAS.length })} autoCorrect={false} returnKeyType="search" />
           <Label style={{ marginTop: 12, marginBottom: 8 }}>{t('How are you feeling?')}</Label>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>

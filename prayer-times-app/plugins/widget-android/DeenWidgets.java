@@ -187,6 +187,83 @@ public class DeenWidgets {
     c.drawRoundRect(box, r, r, p);
   }
 
+  // A faint gold lattice behind the top of a widget, fading down.
+  static void lattice(Canvas c, int w, int h, float d, int accent) {
+    float cell = 22 * d, q = 5 * d, k = q * 1.414f;
+    Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+    p.setStyle(Paint.Style.STROKE);
+    p.setStrokeWidth(0.7f * d);
+    float span = Math.max(cell, h * 0.6f);
+    for (float y = 14 * d; y < span; y += cell) {
+      int a = Math.round(0x26 * (1 - y / span));
+      if (a < 3) break;
+      p.setColor(alpha(accent, a));
+      for (float x = 14 * d; x < w - 8 * d; x += cell) {
+        c.drawRect(x - q, y - q, x + q, y + q, p);
+        Path dm = new Path();
+        dm.moveTo(x, y - k); dm.lineTo(x + k, y); dm.lineTo(x, y + k); dm.lineTo(x - k, y); dm.lineTo(x, y - k);
+        c.drawPath(dm, p);
+      }
+    }
+  }
+
+  // The moon in its real shape for Hijri day `hd` (1 to 30), in white.
+  static void moon(Canvas c, float mx, float my, float r, int hd, boolean south, int star, float d) {
+    int white = 0xFFF6F3EC;
+    Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+    p.setColor(alpha(white, 0x26));
+    c.drawCircle(mx, my, r, p);
+    double t = Math.max(0, Math.min(29, hd - 1)) / 29.5;
+    double cs = Math.cos(2 * Math.PI * t);
+    boolean waxing = t <= 0.5;
+    boolean litRight = waxing != south;
+    boolean crescent = cs > 0;
+    float rx = (float) (r * Math.abs(cs));
+    if (hd > 1) {
+      Path m = new Path();
+      m.arcTo(new RectF(mx - r, my - r, mx + r, my + r), -90, litRight ? 180 : -180);
+      boolean bulgeRight = crescent == litRight;
+      m.arcTo(new RectF(mx - rx, my - r, mx + rx, my + r), 90, bulgeRight ? -180 : 180);
+      p.setColor(white);
+      p.setShadowLayer(5 * d, 0, 0, alpha(white, 0x55));
+      c.drawPath(m, p);
+      p.clearShadowLayer();
+    }
+    if (star > 0) {
+      float sx = mx + r * 1.9f, sy = my - r * 0.9f, sr = (star > 1 ? 3.6f : 2.4f) * d;
+      Path st = new Path();
+      st.moveTo(sx, sy - sr); st.lineTo(sx + sr * 0.3f, sy - sr * 0.3f); st.lineTo(sx + sr, sy); st.lineTo(sx + sr * 0.3f, sy + sr * 0.3f);
+      st.lineTo(sx, sy + sr); st.lineTo(sx - sr * 0.3f, sy + sr * 0.3f); st.lineTo(sx - sr, sy); st.lineTo(sx - sr * 0.3f, sy - sr * 0.3f); st.lineTo(sx, sy - sr);
+      p.setColor(alpha(white, star > 1 ? 0xFF : 0xCC));
+      if (star > 1) p.setShadowLayer(5 * d, 0, 0, alpha(white, 0xAA));
+      c.drawPath(st, p);
+      p.clearShadowLayer();
+    }
+  }
+
+  // The sun in white with a soft glow; short rays on a day you're fasting.
+  static void sun(Canvas c, float x, float y, float r, boolean rays, float d) {
+    int white = 0xFFF6F3EC;
+    Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+    p.setColor(alpha(white, 0x2E));
+    c.drawCircle(x, y, r * 2.1f, p);
+    p.setColor(white);
+    p.setShadowLayer(7 * d, 0, 0, alpha(white, 0x88));
+    c.drawCircle(x, y, r, p);
+    p.clearShadowLayer();
+    if (rays) {
+      p.setStyle(Paint.Style.STROKE);
+      p.setStrokeWidth(1.3f * d);
+      p.setStrokeCap(Paint.Cap.ROUND);
+      p.setColor(alpha(white, 0xD0));
+      for (int i = 0; i < 8; i++) {
+        double a = Math.PI * i / 4;
+        float cx = (float) Math.cos(a), sy = (float) Math.sin(a);
+        c.drawLine(x + cx * r * 1.6f, y + sy * r * 1.6f, x + cx * r * 2.3f, y + sy * r * 2.3f, p);
+      }
+    }
+  }
+
   static Paint text(float size, int color, boolean bold, boolean serif, float d) {
     Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
     p.setTextSize(size * d);
@@ -392,6 +469,7 @@ public class DeenWidgets {
   // Dots 2x2: NOW / NEXT / ENDED, the name, the time left, a big circle, and five stops.
   static void drawDots(Context ctx, RemoteViews v, Canvas c, int w, int h, float d, int[] k, JSONObject data, long now, int id) throws Exception {
     int fill = k[0], ink = k[1], accent = k[2], ok = k[3], amber = k[4];
+    lattice(c, w, h, d, accent);
     int di = rowDay(data, now);
     Pr[] row = prayersOf(data, di);
     Pr cur = currentAt(data, now);
@@ -524,6 +602,7 @@ public class DeenWidgets {
   // and the two times at the bottom. Night: a moon and "Seheri ends in".
   static void drawFast(Context ctx, RemoteViews v, Canvas c, int w, int h, float d, int[] k, JSONObject data, long now) throws Exception {
     int fill = k[0], ink = k[1], accent = k[2], ok = k[3];
+    lattice(c, w, h, d, accent);
     JSONArray days = data.getJSONArray("days");
     int di = 0;
     for (int i = 0; i < days.length(); i++) if (days.getJSONObject(i).optLong("seheri") <= now) di = i;
@@ -594,17 +673,14 @@ public class DeenWidgets {
     Paint body = new Paint(Paint.ANTI_ALIAS_FLAG);
     if (phase == 2) {
       // A crescent at the Seheri end.
-      float mx = ax0 + 6 * d, my = ay - 12 * d * s, mr = 7 * d * s;
-      body.setColor(alpha(ink, 0xDD));
-      body.setShadowLayer(6 * d, 0, 0, alpha(ink, 0x66));
-      c.drawCircle(mx, my, mr, body);
-      body.clearShadowLayer();
-      body.setColor(fill);
-      c.drawCircle(mx + mr * 0.45f, my - mr * 0.3f, mr * 0.85f, body);
-    } else {
-      body.setColor(phase == 1 ? ok : accent);
-      body.setShadowLayer(8 * d, 0, 0, alpha(phase == 1 ? ok : accent, 0xAA));
+      float mx = ax0 + 6 * d, my = ay - 12 * d * s, mr = 7.5f * d * s;
+      moon(c, mx, my, mr, day.optInt("hd", 8), data.optBoolean("south", false), day.optInt("star", 0), d);
+    } else if (phase == 1) {
+      body.setColor(ok);
+      body.setShadowLayer(8 * d, 0, 0, alpha(ok, 0xAA));
       c.drawCircle(bx, byy, 6.5f * d * s, body);
+    } else {
+      sun(c, bx, byy, 5.5f * d * s, keeping, d);
     }
 
     // The time left (or the done line) in the middle.

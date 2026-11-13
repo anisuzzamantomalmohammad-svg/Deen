@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, Platform, View } from 'react-native';
-import Svg, { Path, Circle, Line, G, Text as SvgText, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Circle, Line, G, Rect, Ellipse, ClipPath, LinearGradient, Text as SvgText, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, useT, Serif, Body, Label, Press, IconBtn, Arabic, F } from './kit';
@@ -8,23 +8,92 @@ import { useTheme, useT, Serif, Body, Label, Press, IconBtn, Arabic, F } from '.
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 /* ------------------------------ Arch ------------------------------ */
-export function archGeometry(W, H, s = 3) {
+// A pointed mihrab arch. `d` is the closed shape, `line` the open outline
+// (bottom left, over the top, bottom right) that the timer line follows.
+const cub = (p0, p1, p2, p3, t) => {
+  const u = 1 - t;
+  return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
+};
+export function archGeometry(W, H, s = 4) {
   const x0 = s;
   const x1 = W - s;
   const top = s;
-  const bottom = H - s;
-  const r = (x1 - x0) / 2;
+  const bottom = H;
+  const span = x1 - x0;
   const cx = W / 2;
-  const d = `M${cx} ${bottom} L${x0} ${bottom} L${x0} ${top + r} A${r} ${r} 0 0 1 ${x1} ${top + r} L${x1} ${bottom} Z`;
-  const length = (x1 - x0) + 2 * (bottom - top - r) + Math.PI * r;
-  return { d, length };
+  const sh = top + span * 0.558; // where the straight sides end
+  const c1y = top + span * 0.297;
+  const c2x = span * 0.225;
+  const c2y = top + span * 0.152;
+  const line = `M${x0} ${bottom} L${x0} ${sh} C${x0} ${c1y} ${x0 + c2x} ${c2y} ${cx} ${top} C${x1 - c2x} ${c2y} ${x1} ${c1y} ${x1} ${sh} L${x1} ${bottom}`;
+  let curve = 0;
+  let px = x0;
+  let py = sh;
+  for (let i = 1; i <= 24; i++) {
+    const t = i / 24;
+    const x = cub(x0, x0, x0 + c2x, cx, t);
+    const y = cub(sh, c1y, c2y, top, t);
+    curve += Math.hypot(x - px, y - py);
+    px = x;
+    py = y;
+  }
+  return { d: `${line} Z`, line, length: 2 * (bottom - sh) + 2 * curve, cx, top, sh, x0, x1 };
 }
 
-// The mihrab arch with a thin timer line that runs clockwise from the bottom
-// middle and completes exactly at the next prayer.
-export function Arch({ width, height, progress, cycleKey, children, onPress }) {
+// Where the sun or moon sits inside the dome: `pos` 0..1 across its path.
+function skyPoint(W, pos) {
+  const x = W * (0.2 + 0.6 * pos);
+  const y = W * (0.44 - 0.2 * Math.sin(Math.PI * pos));
+  return [x, y];
+}
+
+// The sun (rays on a fasting day) or the moon in tonight's real shape, with
+// a star on special nights. Drawn in white on dark palettes.
+export function SkyBody({ cx, cy, r, sky, color, glow }) {
+  if (!sky) return null;
+  if (sky.kind === 'sun') {
+    return (
+      <G>
+        {glow ? <Circle cx={cx} cy={cy} r={r * 3.6} fill="url(#skyGlow)" /> : null}
+        <Circle cx={cx} cy={cy} r={r} fill={color} />
+        {sky.rays ? Array.from({ length: 12 }, (_, i) => {
+          const a = (i * Math.PI) / 6;
+          const r1 = r * 1.4;
+          const r2 = r * (i % 2 ? 1.85 : 2.15);
+          return <Line key={i} x1={cx + r1 * Math.cos(a)} y1={cy + r1 * Math.sin(a)} x2={cx + r2 * Math.cos(a)} y2={cy + r2 * Math.sin(a)} stroke={color} strokeOpacity={i % 2 ? 0.5 : 0.85} strokeWidth={Math.max(1, r * 0.13)} strokeLinecap="round" />;
+        }) : null}
+      </G>
+    );
+  }
+  const size = r * 2 + 6;
+  // moonPhasePath draws the northern-hemisphere view; flip it south of the equator
+  const flip = sky.south ? `translate(${cx + size / 2} ${cy - size / 2}) scale(-1 1)` : `translate(${cx - size / 2} ${cy - size / 2})`;
+  const litLeft = sky.south ? sky.hDay < 15 : sky.hDay >= 15;
+  const sx = cx + (litLeft ? 1 : -1) * r * 1.75;
+  const sy = cy - r * 1.05;
+  const sr = r * (sky.star === 2 ? 0.34 : 0.27);
+  return (
+    <G>
+      {glow ? <Circle cx={cx} cy={cy} r={r * 2.6} fill="url(#skyGlow)" /> : null}
+      <Circle cx={cx} cy={cy} r={r} fill={color} opacity={0.14} />
+      <G transform={flip}><Path d={moonPhasePath(sky.hDay, size)} fill={color} /></G>
+      {sky.star ? (
+        <G>
+          {sky.star === 2 ? <Circle cx={sx} cy={sy} r={sr * 2.6} fill={color} opacity={0.18} /> : null}
+          <Path d={`M${sx - sr} ${sy - sr} h${sr * 2} v${sr * 2} h${-sr * 2} Z`} fill={color} />
+          <Path d={`M${sx} ${sy - sr * 1.414} L${sx + sr * 1.414} ${sy} L${sx} ${sy + sr * 1.414} L${sx - sr * 1.414} ${sy} Z`} fill={color} />
+        </G>
+      ) : null}
+    </G>
+  );
+}
+
+// The mihrab arch in frosted glass, with the sun or moon inside its dome and
+// a thin timer line along its edge that completes at the next prayer.
+export function Arch({ width, height, progress, cycleKey, children, onPress, sky }) {
   const th = useTheme();
-  const { d, length } = useMemo(() => archGeometry(width, height), [width, height]);
+  const geo = useMemo(() => archGeometry(width, height), [width, height]);
+  const { d, line, length } = geo;
   const p = useRef(new Animated.Value(progress)).current;
   const flash = useRef(new Animated.Value(0)).current;
   const lastKey = useRef(cycleKey);
@@ -45,15 +114,42 @@ export function Arch({ width, height, progress, cycleKey, children, onPress }) {
     Animated.timing(p, { toValue: progress, duration: 1000, easing: Easing.linear, useNativeDriver: false, isInteraction: false }).start();
   }, [progress, cycleKey]);
   const offset = p.interpolate({ inputRange: [0, 1], outputRange: [length, 0] });
+  const [bx, by] = skyPoint(width, sky ? sky.pos : 0.5);
+  const lineColor = th.prohibited ? th.red : th.accent;
+  const fr = Math.max(3, width * 0.018);
   const content = (
     <View style={{ width, height }}>
-      <Svg width={width} height={height} style={{ position: 'absolute' }}>
-        <Path d={d} fill={th.card} />
-        <Path d={d} fill="none" stroke={th.isLight ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.12)'} strokeWidth={2.5} />
-        <AnimatedPath d={d} fill="none" stroke={th.isLight || th.prohibited ? (th.isLight ? '#FFE9C9' : th.accent) : th.accent} strokeWidth={2.5} strokeLinecap="round" strokeDasharray={`${length} ${length}`} strokeDashoffset={offset} />
-        <AnimatedPath d={d} fill="none" stroke="#FFFFFF" strokeWidth={6} opacity={flash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.6] })} />
+      <Svg width={width} height={height + 2} style={{ position: 'absolute', overflow: 'visible' }}>
+        <Defs>
+          <ClipPath id="archClip"><Path d={d} /></ClipPath>
+          <RadialGradient id="skyGlow" cx="0.5" cy="0.5" r="0.5">
+            <Stop offset="0" stopColor={th.isLight ? th.skyBody : '#FFFFFF'} stopOpacity={th.fx ? (th.nightRed ? 0.18 : 0.4) : 0} />
+            <Stop offset="1" stopColor={th.isLight ? th.skyBody : '#FFFFFF'} stopOpacity="0" />
+          </RadialGradient>
+          <RadialGradient id="domeGlow" cx="0.5" cy="0.5" r="0.5">
+            <Stop offset="0" stopColor={th.glow} stopOpacity={th.glowOp ? Math.min(0.85, th.glowOp * 1.5) : 0} />
+            <Stop offset="1" stopColor={th.glow} stopOpacity="0" />
+          </RadialGradient>
+          <LinearGradient id="archShade" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={th.isLight ? '#FFFFFF' : '#000000'} stopOpacity={th.isLight ? 0.2 : 0.02} />
+            <Stop offset="0.5" stopColor={th.isLight ? '#FFFFFF' : '#000000'} stopOpacity={th.isLight ? 0.5 : 0.26} />
+            <Stop offset="1" stopColor={th.isLight ? '#FFFFFF' : '#000000'} stopOpacity={th.isLight ? 0.62 : 0.36} />
+          </LinearGradient>
+        </Defs>
+        <Path d={d} fill={th.deep} fillOpacity={th.isLight ? 0.5 : 0.72} />
+        <G clipPath="url(#archClip)">
+          <Ellipse cx={bx} cy={by} rx={width * 0.62} ry={width * 0.5} fill="url(#domeGlow)" />
+          <Rect x="0" y="0" width={width} height={height} fill="url(#archShade)" />
+          <SkyBody cx={bx} cy={by} r={width * 0.043} sky={sky} color={th.skyBody} glow />
+        </G>
+        <Path d={line} fill="none" stroke={th.glassLine} strokeWidth={1} />
+        <Path d={line} fill="none" stroke={lineColor} strokeOpacity={0.22} strokeWidth={2.5} transform={`translate(0 0)`} />
+        <AnimatedPath d={line} fill="none" stroke={lineColor} strokeWidth={2.5} strokeLinecap="round" strokeDasharray={`${length} ${length}`} strokeDashoffset={offset} />
+        <AnimatedPath d={line} fill="none" stroke="#FFFFFF" strokeWidth={6} opacity={flash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.6] })} />
+        <Path d={`M${geo.cx - fr} ${geo.top - fr} h${fr * 2} v${fr * 2} h${-fr * 2} Z`} fill={lineColor} />
+        <Path d={`M${geo.cx} ${geo.top - fr * 1.414} L${geo.cx + fr * 1.414} ${geo.top} L${geo.cx} ${geo.top + fr * 1.414} L${geo.cx - fr * 1.414} ${geo.top} Z`} fill={lineColor} />
       </Svg>
-      <View style={{ position: 'absolute', left: 0, right: 0, top: width * 0.2, bottom: 0, alignItems: 'center' }}>{children}</View>
+      <View style={{ position: 'absolute', left: 0, right: 0, top: width * 0.4, bottom: 0, alignItems: 'center' }}>{children}</View>
     </View>
   );
   return onPress ? <Press onPress={onPress} scaleTo={0.985}>{content}</Press> : content;
@@ -110,20 +206,34 @@ export function TabBar({ active, onChange }) {
     Animated.spring(x, { toValue: idx, useNativeDriver: Platform.OS !== 'web', speed: 20, bounciness: 5 }).start();
   }, [idx]);
   const seg = w / TABS.length;
+  const onInk = th.isLight ? th.cardInk : th.bg;
   return (
-    <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 10, alignItems: 'center' }}>
+    <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center', paddingBottom: insets.bottom + 10 }}>
+      {/* lists fade out before they reach the bar */}
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: insets.bottom + 128 }}>
+        <Svg width="100%" height="100%">
+          <Defs>
+            <LinearGradient id="tabFade" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={th.bg} stopOpacity="0" />
+              <Stop offset="0.62" stopColor={th.bg} stopOpacity="0.94" />
+              <Stop offset="1" stopColor={th.bg} stopOpacity="1" />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#tabFade)" />
+        </Svg>
+      </View>
       <View
         onLayout={(e) => setW(e.nativeEvent.layout.width)}
         style={{
-          width: '92%', maxWidth: 460, height: 62, borderRadius: 31, flexDirection: 'row', alignItems: 'center',
-          backgroundColor: th.isLight ? 'rgba(255,255,255,0.88)' : th.sheet, borderWidth: 1, borderColor: th.line,
+          width: '92%', maxWidth: 460, height: 64, borderRadius: 32, flexDirection: 'row', alignItems: 'center',
+          backgroundColor: th.isLight ? 'rgba(255,255,255,0.92)' : th.sheet, borderWidth: 1, borderColor: th.glassLine || th.line,
           shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 8,
         }}
       >
         {w > 0 && (
           <Animated.View
             style={{
-              position: 'absolute', left: seg / 2 - 22, width: 44, height: 44, top: 8, borderRadius: 22, backgroundColor: th.accentSoft,
+              position: 'absolute', left: 5, width: seg - 10, height: 50, top: 6, borderRadius: 25, backgroundColor: th.accent,
               transform: [{ translateX: x.interpolate({ inputRange: [0, 1], outputRange: [0, seg] }) }],
             }}
           />
@@ -131,9 +241,9 @@ export function TabBar({ active, onChange }) {
         {TABS.map((tab) => {
           const on = tab.id === active;
           return (
-            <Press key={tab.id} onPress={() => onChange(tab.id)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', height: 62 }} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={t(tab.id)} scaleTo={0.9}>
-              <Feather name={tab.icon} size={19} color={on ? th.accent : th.faint} />
-              <Body size={9.5} weight={on ? 'semi' : 'med'} color={on ? th.accent : th.faint} style={{ marginTop: 3, lineHeight: 12 }} numberOfLines={1}>{t(tab.id)}</Body>
+            <Press key={tab.id} onPress={() => onChange(tab.id)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', height: 64 }} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={t(tab.id)} scaleTo={0.9}>
+              <Feather name={tab.icon} size={19} color={on ? onInk : th.faint} />
+              <Body size={9.5} weight={on ? 'bold' : 'med'} color={on ? onInk : th.faint} style={{ marginTop: 3, lineHeight: 12 }} numberOfLines={1} adjustsFontSizeToFit>{t(tab.id)}</Body>
             </Press>
           );
         })}

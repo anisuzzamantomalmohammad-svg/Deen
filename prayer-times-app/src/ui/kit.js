@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, View, BackHandler, TextInput } from 'react-native';
-import Svg, { Defs, Pattern, Rect, Circle, Path, G, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Defs, Pattern, Rect, Circle, Path, G, LinearGradient, RadialGradient, Ellipse, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { translate, bnDigits } from '../i18n';
@@ -128,7 +128,7 @@ export function Press({ onPress, onLongPress, style, children, haptic = true, di
 export function Card({ style, children, onPress, onLongPress, active, danger }) {
   const th = useTheme();
   const base = [
-    { backgroundColor: th.soft, borderColor: th.line, borderWidth: 1, borderRadius: 18 },
+    { backgroundColor: th.glass || th.soft, borderColor: th.glassLine || th.line, borderWidth: 1, borderRadius: 22 },
     active && { borderColor: th.accentLine, backgroundColor: th.accentSoft },
     danger && { borderColor: th.red, backgroundColor: th.redSoft },
     style,
@@ -172,12 +172,12 @@ export function Segmented({ options, value, onChange, style }) {
   return (
     <View
       onLayout={(e) => setW(e.nativeEvent.layout.width)}
-      style={[{ flexDirection: 'row', backgroundColor: th.soft, borderColor: th.line, borderWidth: 1, borderRadius: 99, padding: 3 }, style]}
+      style={[{ flexDirection: 'row', backgroundColor: th.glass || th.soft, borderColor: th.glassLine || th.line, borderWidth: 1, borderRadius: 99, padding: 3 }, style]}
     >
       {seg > 0 && (
         <Animated.View
           style={{
-            position: 'absolute', top: 3, bottom: 3, left: 3, width: seg, borderRadius: 99, backgroundColor: th.card,
+            position: 'absolute', top: 3, bottom: 3, left: 3, width: seg, borderRadius: 99, backgroundColor: th.accent,
             transform: [{ translateX: x.interpolate({ inputRange: [0, 1], outputRange: [0, seg] }) }],
           }}
         />
@@ -186,7 +186,7 @@ export function Segmented({ options, value, onChange, style }) {
         const on = o.id === value;
         return (
           <Pressable key={o.id} style={{ flex: 1, paddingVertical: 8, alignItems: 'center' }} onPress={() => onChange(o.id)} accessibilityRole="tab" accessibilityState={{ selected: on }}>
-            <Body size={12.5} weight={on ? 'bold' : 'med'} color={on ? th.cardInk : th.muted}>{o.label}</Body>
+            <Body size={12.5} weight={on ? 'bold' : 'med'} color={on ? (th.isLight ? th.cardInk : th.bg) : th.muted}>{o.label}</Body>
           </Pressable>
         );
       })}
@@ -253,6 +253,30 @@ export function SectionLabel({ children, style, right }) {
   );
 }
 
+// A section heading with a progress ring: how much of it is done today.
+export function RingHead({ done, total, title, sub, style }) {
+  const th = useTheme();
+  const R = 13;
+  const C = 2 * Math.PI * R;
+  const pct = total ? Math.min(1, done / total) : 0;
+  const all = total > 0 && done >= total;
+  return (
+    <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 11, marginTop: 22, marginBottom: 10, marginHorizontal: 2 }, style]}>
+      <View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
+        <Svg width={34} height={34} style={{ position: 'absolute' }}>
+          <Circle cx={17} cy={17} r={R} stroke={th.line} strokeWidth={3.5} fill="none" />
+          {pct > 0 ? <Circle cx={17} cy={17} r={R} stroke={all ? th.ok : th.accent} strokeWidth={3.5} fill="none" strokeLinecap="round" strokeDasharray={`${C * pct} ${C}`} transform="rotate(-90 17 17)" /> : null}
+        </Svg>
+        <Body size={10} weight="bold" color={all ? th.ok : th.muted} maxScale={1}>{`${done}/${total}`}</Body>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Serif size={18}>{title}</Serif>
+        {sub ? <Body size={11.5} color={all ? th.ok : th.muted}>{sub}</Body> : null}
+      </View>
+    </View>
+  );
+}
+
 export function IconBtn({ name, onPress, size = 18, style, label }) {
   const th = useTheme();
   return (
@@ -269,13 +293,13 @@ export function PrimaryButton({ label, onPress, icon, style, disabled, ghost }) 
       onPress={onPress}
       disabled={disabled}
       style={[
-        { flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', paddingVertical: 13, borderRadius: 99, backgroundColor: ghost ? 'transparent' : th.card },
+        { flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', paddingVertical: 13, borderRadius: 99, backgroundColor: ghost ? 'transparent' : th.accent },
         ghost && { borderWidth: 1, borderColor: th.line },
         style,
       ]}
     >
-      {icon ? <Feather name={icon} size={16} color={ghost ? th.ink : th.cardInk} /> : null}
-      <Body size={14} weight="bold" color={ghost ? th.ink : th.cardInk}>{label}</Body>
+      {icon ? <Feather name={icon} size={16} color={ghost ? th.ink : th.isLight ? th.cardInk : th.bg} /> : null}
+      <Body size={14} weight="bold" color={ghost ? th.ink : th.isLight ? th.cardInk : th.bg}>{label}</Body>
     </Press>
   );
 }
@@ -287,11 +311,11 @@ export function PrimaryButton({ label, onPress, icon, style, disabled, ghost }) 
 //   safar    compass rose             fullmoon  a full moon (White Days)
 export function PatternBand({ height = 300, style, opacity, variant }) {
   const th = useTheme();
-  const op = opacity ?? (th.patternOpacity ?? (th.isLight ? 0.28 : 0.35));
+  const op = opacity ?? (th.patternOpacity ?? (th.isLight ? 0.3 : 0.32));
   const stroke = th.prohibited ? (th.isLight ? '#C0392B' : '#B05040') : th.accent;
   const id = `pat-${variant || 'star'}`;
   return (
-    <View pointerEvents="none" style={[{ position: 'absolute', top: 0, left: 0, right: 0, height, backgroundColor: th.bg2 }, style]}>
+    <View pointerEvents="none" style={[{ position: 'absolute', top: 0, left: 0, right: 0, height }, style]}>
       <Svg width="100%" height="100%">
         <Defs>
           <Pattern id={id} patternUnits="userSpaceOnUse" width={variant ? 88 : 44} height={variant ? 88 : 44}>
@@ -349,12 +373,18 @@ export function PatternBand({ height = 300, style, opacity, variant }) {
             </G>
           </Pattern>
           <LinearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0.45" stopColor={th.bg} stopOpacity="0" />
+            <Stop offset="0" stopColor={th.bg} stopOpacity="0.35" />
+            <Stop offset="0.6" stopColor={th.bg} stopOpacity="0.86" />
             <Stop offset="1" stopColor={th.bg} stopOpacity="1" />
           </LinearGradient>
+          <RadialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+            <Stop offset="0" stopColor={th.glow || th.accent} stopOpacity={th.glowOp || 0} />
+            <Stop offset="1" stopColor={th.glow || th.accent} stopOpacity="0" />
+          </RadialGradient>
         </Defs>
         <Rect width="100%" height="100%" fill={`url(#${id})`} />
         <Rect width="100%" height="100%" fill="url(#fade)" />
+        {th.glowOp ? <Ellipse cx="50%" cy="26%" rx="85%" ry="58%" fill="url(#glow)" /> : null}
       </Svg>
     </View>
   );
@@ -396,13 +426,13 @@ export function Sheet({ visible, onClose, title, subtitle, children, scroll = tr
   const Inner = scroll ? ScrollView : View;
   return (
     <Modal transparent visible animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)', opacity: y.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }]}>
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: th.fx ? 'rgba(0,0,0,0.38)' : 'rgba(0,0,0,0.5)', opacity: y.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
       </Animated.View>
       <Animated.View
         style={{
           position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '88%', backgroundColor: th.sheet,
-          borderTopLeftRadius: 26, borderTopRightRadius: 26, borderTopWidth: 1, borderColor: th.line,
+          borderTopLeftRadius: 30, borderTopRightRadius: 30, borderTopWidth: 1, borderColor: th.fx ? th.glassLine : th.line,
           paddingBottom: insets.bottom + 14,
           transform: [{ translateY: Animated.add(y.interpolate({ inputRange: [0, 1], outputRange: [0, 700] }), drag) }],
         }}
@@ -450,8 +480,8 @@ export function Toast({ message, onHide }) {
       pointerEvents={m.action ? 'box-none' : 'none'}
       accessibilityLiveRegion="polite"
       style={{
-        position: 'absolute', left: 24, right: 24, top: insets.top + 12, zIndex: 50, opacity: a,
-        transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
+        position: 'absolute', left: 20, right: 20, bottom: insets.bottom + 84, zIndex: 50, opacity: a,
+        transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
         backgroundColor: th.card, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 16,
         flexDirection: 'row', alignItems: 'center', gap: 10,
       }}
@@ -547,11 +577,11 @@ export function Input({ style, multiline, ...rest }) {
 }
 
 // Round tick used for prayers and checklists.
-export function Tick({ done, size = 22, color }) {
+export function Tick({ done, size = 24, color }) {
   const th = useTheme();
   return (
     <View style={[{ width: size, height: size, borderRadius: size / 2, borderWidth: 1.5, borderColor: th.faint, alignItems: 'center', justifyContent: 'center' }, done && { backgroundColor: color || th.ok, borderColor: color || th.ok }]}>
-      {done ? <Feather name="check" size={size * 0.58} color="#fff" /> : null}
+      {done ? <Feather name="check" size={size * 0.6} color={th.isLight ? '#fff' : th.bg} /> : null}
     </View>
   );
 }

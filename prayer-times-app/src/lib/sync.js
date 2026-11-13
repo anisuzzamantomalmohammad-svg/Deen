@@ -10,10 +10,10 @@
 
 // Fields that sync (and go in the Drive backup).
 export const DAY_PRAYER_FIELDS = ['completedByDay', 'qadaRecords', 'rakahByDay', 'tickAt', 'notPrayed', 'imamByDay', 'dhikrByDay'];
-export const DAY_FIELDS = ['completedSunnahByDay', 'journalByDay', 'fastPlans', 'trackedDays', 'todayTicks', 'jumuahByDay', 'seheriByDay', 'notFastingByDay', 'safarDays'];
+export const DAY_FIELDS = ['completedSunnahByDay', 'journalByDay', 'fastPlans', 'trackedDays', 'todayTicks', 'jumuahByDay', 'seheriByDay', 'notFastingByDay', 'safarDays', 'pausedDays', 'fridayChecks'];
 export const WHOLE_FIELDS = [
   'qadaCounts', 'olderLog', 'qadaLog', 'taraweeh', 'quranJuz', 'missedFasts', 'zakatFitrDone', 'ramadanChecks', 'quran', 'namesLearnt', 'learn',
-  'surahsLearned', 'favoriteDuaIds', 'calcMethod', 'asrMethod', 'hijriMode', 'hijriOffset', 'hijriOverrides', 'hijriBirthday', 'charity', 'firstOpenAt',
+  'surahsLearned', 'favoriteDuaIds', 'tasbih', 'pause', 'qadaPlan', 'quranPlan', 'myDuas', 'safetyBuffer', 'calcMethod', 'asrMethod', 'hijriMode', 'hijriOffset', 'hijriOverrides', 'hijriBirthday', 'charity', 'firstOpenAt',
 ];
 export const SYNC_FIELDS = [...DAY_PRAYER_FIELDS, ...DAY_FIELDS, ...WHOLE_FIELDS];
 
@@ -22,7 +22,7 @@ export const PER_PHONE = [
   'themeMode', 'darkPalette', 'lightPalette', 'colourMode', 'colourPins', 'nightOn', 'nightWhen', 'nightOffDay', 'lang', 'arabicSize', 'textSize',
   'savedLocations', 'activeLocationId', 'lastAuto', 'homeBase', 'seenCity', 'cityAsked', 'secondCity', 'secondCityOn',
   'google', 'lastDriveBackupAt', 'backupDirUri', 'lastAutoBackupAt', 'syncStamps', 'lastSyncAt', 'lastSyncedDirty', 'handledResponse',
-  'travelConfirmed', 'safar', 'safarDeclined', 'timeAdj', 'adjPerCity', 'adjByCity',
+  'travelConfirmed', 'safar', 'safarDeclined', 'timeAdj', 'adjPerCity', 'adjByCity', 'reduceFx', 'saveDirUri', 'time24', 'jamaat', 'jamaatAlert',
 ];
 
 const eq = (a, b) => a === b || JSON.stringify(a) === JSON.stringify(b);

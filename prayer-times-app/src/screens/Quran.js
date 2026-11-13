@@ -11,7 +11,8 @@ import { nowDate } from '../lib/clock';
 import { useNav } from '../nav';
 import { useTheme, useT, Serif, Body, Label, Arabic, Card, Press, Input, Segmented, Chip, Tick, PrimaryButton } from '../ui/kit';
 import { ScreenTitle } from '../ui/parts';
-import { useLayout } from '../ui/hooks';
+import { useLayout, shortDate } from '../ui/hooks';
+import { addDays } from '../lib/prayer';
 import { HScroll } from '../ui/swipe';
 
 const SURAHS = require('../data/quran/surahs.json'); // [n, ar, translit, en, bn, type, verses]
@@ -48,6 +49,17 @@ const CUM = SURAHS.reduce((acc, x, i) => { acc.push((acc[i] || 0) + x[6]); retur
 export const TOTAL_AYAHS = CUM[114];
 export const posOf = (s, a) => CUM[s - 1] + a;
 const paraEnd = (k) => (k >= 30 ? TOTAL_AYAHS : posOf(JUZ_START[k][0], JUZ_START[k][1]) - 1); // last ayah of para k
+const atPos = (p) => { let s = 1; while (s < 114 && CUM[s] < p) s += 1; return [s, Math.max(1, p - CUM[s - 1])]; };
+// Finish plan: how many verses are left for today.
+export function planToday(plan, pos, today) {
+  if (!plan || !plan.days) return null;
+  const start = new Date(plan.start);
+  const day = Math.max(0, Math.round((new Date(today.getFullYear(), today.getMonth(), today.getDate()) - new Date(start.getFullYear(), start.getMonth(), start.getDate())) / 86400000));
+  const per = Math.ceil((TOTAL_AYAHS - plan.from) / plan.days);
+  const goal = Math.min(TOTAL_AYAHS, plan.from + per * Math.min(plan.days, day + 1));
+  const [gs, ga] = atPos(goal);
+  return { left: Math.max(0, goal - pos), per, goal, gs, ga, end: addDays(start, plan.days - 1), late: day >= plan.days && pos < TOTAL_AYAHS };
+}
 const nextAyah = (s, a) => (a < SURAHS[s - 1][6] ? [s, a + 1] : s < 114 ? [s + 1, 1] : null);
 
 export default function QuranScreen({ surah, ayah }) {
@@ -76,6 +88,11 @@ export function QuranBody() {
   const pos = pr ? posOf(pr.s, pr.a) : 0;
   const pct = Math.floor((pos / TOTAL_AYAHS) * 100);
   const next = pr ? nextAyah(pr.s, pr.a) : [1, 1];
+  const plan = app.data.quranPlan;
+  const pt = planToday(plan, pos, app.today);
+  const [planOpen, setPlanOpen] = useState(false);
+  const setPlan = (days) => { app.update({ quranPlan: days ? { days, start: nowDate().toISOString(), from: pos } : null }); setPlanOpen(false); };
+  const eidDays = h.monthIndex === 8 ? Math.max(1, 30 - h.day + 1) : 0;
   const learnt = Object.values(app.data.namesLearnt || {}).filter(Boolean).length;
   // Short chapters finished in Learn › Read a short chapter show as read here too.
   const readInLearn = ((app.data.learn || {}).read) || {};
@@ -107,9 +124,36 @@ export function QuranBody() {
             </View>
             <Body size={10.5} color={th.faint} style={{ marginTop: 4 }}>{t('30 parts (paras) · {n} done', { n: JUZ_START.filter((_, k) => pos >= paraEnd(k + 1)).length })}</Body>
             {next ? <PrimaryButton style={{ marginTop: 12 }} icon="book-open" label={t('Carry on · {s}:{a}', { s: t.num(next[0]), a: t.num(next[1]) })} onPress={() => nav.push('quran', { surah: next[0], ayah: next[1] })} /> : <Body size={13} weight="semi" color={th.ok} style={{ marginTop: 10 }}>{t('You have read the whole Quran. MashaAllah.')}</Body>}
+            {pos < TOTAL_AYAHS ? (
+              <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderColor: th.line }}>
+                {pt && !planOpen ? (
+                  <Press onPress={() => setPlanOpen(true)} style={{ flexDirection: 'row', alignItems: 'center' }} accessibilityLabel={t('Finish plan')}>
+                    <View style={{ flex: 1 }}>
+                      <Label size={8} color={th.accent}>{t('Finish plan')}</Label>
+                      <Body size={13.5} weight="semi" color={pt.left ? th.ink : th.ok} style={{ marginTop: 2 }}>{pt.left ? t('Today: {n} verses, to {s}:{a}', { n: t.num(pt.left), s: t.num(pt.gs), a: t.num(pt.ga) }) : t('Today’s reading is done')}</Body>
+                      <Body size={11} color={th.muted} style={{ marginTop: 1 }}>{pt.late ? t('The plan’s last day has passed. Tap to set a new one.') : t('Finish on {d}', { d: shortDate(t.lang, pt.end) })}</Body>
+                    </View>
+                    <Feather name="chevron-right" size={16} color={th.faint} />
+                  </Press>
+                ) : (
+                  <View>
+                    <Label size={8} color={th.faint}>{t('Finish the Quran in')}</Label>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                      {eidDays ? <Chip label={t('By Eid')} active={false} onPress={() => setPlan(eidDays)} /> : null}
+                      {[7, 30, 60].map((d) => <Chip key={d} label={t('{n} days', { n: d })} active={!!plan && plan.days === d} onPress={() => setPlan(d)} />)}
+                      {plan ? <Chip label={t('Off')} active={false} onPress={() => setPlan(0)} /> : null}
+                    </View>
+                  </View>
+                )}
+              </View>
+            ) : null}
           </>
         ) : (
-          <Body size={12.5} color={th.muted} style={{ marginTop: 4, lineHeight: 18 }}>{t('Nothing is tracked by itself. While reading, tap “Read up to here” on the verse where you stop, and your progress shows here.')}</Body>
+          <>
+            <Serif size={22} style={{ marginTop: 4 }}>{t('Start from Al-Fatihah')}</Serif>
+            <Body size={12.5} color={th.muted} style={{ marginTop: 4, lineHeight: 18 }}>{t('Tap a verse where you stop, then “Read up to here”. Your progress shows here.')}</Body>
+            <PrimaryButton style={{ marginTop: 12 }} icon="book-open" label={t('Start reading')} onPress={() => nav.push('quran', { surah: 1 })} />
+          </>
         )}
       </Card>
 
@@ -138,7 +182,9 @@ export function QuranBody() {
               </View>
               <View style={{ flex: 1 }}>
                 <Body size={14.5} weight="semi">{x[2]}</Body>
-                <Body size={11.5} color={th.muted}>{`${t.lang === 'bn' ? x[4] : x[3]} · ${t('{n} verses', { n: x[6] })}`}</Body>
+                {pr && pr.s === x[0] && pos < CUM[x[0]]
+                  ? <Body size={11.5} color={th.accent}>{t('Reading · up to {s}:{a}', { s: t.num(pr.s), a: t.num(pr.a) })}</Body>
+                  : <Body size={11.5} color={th.muted}>{`${t.lang === 'bn' ? x[4] : x[3]} · ${t('{n} verses', { n: x[6] })}${(pr && pos >= CUM[x[0]]) || readInLearn[x[0]] ? ` · ${t('read')}` : ''}`}</Body>}
               </View>
               <Arabic size={20} color={th.accent} style={{ lineHeight: 34 }}>{x[1]}</Arabic>
             </Press>
@@ -215,6 +261,7 @@ function Reader({ surah, ayah }) {
   const quran = app.data.quran || {};
   const trans = quran.trans || 'both';
   const [noteFor, setNoteFor] = useState(null);
+  const [sel, setSel] = useState(null);
   const [noteText, setNoteText] = useState('');
   const listRef = useRef(null);
   const verses = A[surah - 1].map((ar, i) => ({ n: i + 1, ar, en: E[surah - 1][i], bn: B[surah - 1][i] }));
@@ -226,9 +273,11 @@ function Reader({ surah, ayah }) {
   const pr = quran.progress;
   const prPos = pr ? posOf(pr.s, pr.a) : 0;
   const markHere = (n) => {
+    const before = pr || null;
     setQ({ progress: { s: surah, a: n, at: nowDate().toISOString() } });
+    setSel(null);
     const p = posOf(surah, n);
-    app.setToast(t('Progress: {n} of {m} verses · {p}%', { n: t.num(p.toLocaleString('en-US')), m: t.num(TOTAL_AYAHS.toLocaleString('en-US')), p: Math.floor((p / TOTAL_AYAHS) * 100) }));
+    app.setToast({ action: { label: t('Undo'), onPress: () => setQ({ progress: before }) }, message: t('Progress: {n} of {m} verses · {p}%', { n: t.num(p.toLocaleString('en-US')), m: t.num(TOTAL_AYAHS.toLocaleString('en-US')), p: Math.floor((p / TOTAL_AYAHS) * 100) }) });
   };
   const header = (
     <View>
@@ -245,6 +294,7 @@ function Reader({ surah, ayah }) {
     <FlatList
       ref={listRef}
       data={verses}
+      extraData={sel}
       keyExtractor={(v) => String(v.n)}
       ListHeaderComponent={header}
       initialNumToRender={ayah ? Math.min(verses.length, ayah + 6) : 10}
@@ -265,16 +315,18 @@ function Reader({ surah, ayah }) {
       )}
       renderItem={({ item: v }) => {
         const note = (quran.notes || {})[key(v.n)];
+        const open = sel === v.n || noteFor === v.n;
         const juzHere = JUZ_START.findIndex(([s, a]) => s === surah && a === v.n);
         return (
-          <View style={[{ paddingVertical: 14, borderBottomWidth: 1, borderColor: th.line }, pr && pr.s === surah && pr.a === v.n && { backgroundColor: th.accentSoft, borderLeftWidth: 3, borderLeftColor: th.accent, paddingLeft: 10, borderRadius: 4 }]}>
+          <Press scaleTo={1} haptic={false} accessibilityRole="none" onPress={() => setSel(open ? null : v.n)} style={[{ paddingVertical: 14, borderBottomWidth: 1, borderColor: th.line }, pr && pr.s === surah && pr.a === v.n && { backgroundColor: th.accentSoft, borderLeftWidth: 3, borderLeftColor: th.accent, paddingLeft: 10, borderRadius: 4 }]}>
             {pr && pr.s === surah && pr.a === v.n ? <Label size={8} color={th.accent} style={{ marginBottom: 6 }}>{t('Your progress · {s}:{a}', { s: t.num(surah), a: t.num(v.n) })}</Label> : null}
             {juzHere > 0 ? <Label size={8} color={th.accent} style={{ marginBottom: 6 }}>{t('Part {n} starts', { n: juzHere + 1 })}</Label> : null}
             <Arabic size={23 * (app.arabicScale || 1)} style={{ textAlign: 'right', lineHeight: 44 * (app.arabicScale || 1) }}>{`${v.ar} ﴿${v.n}﴾`}</Arabic>
             {trans === 'both' || trans === 'bn' ? <Body size={13.5} style={{ marginTop: 6, lineHeight: 21 }}>{v.bn}</Body> : null}
             {trans === 'both' || trans === 'en' ? <Body size={13} color={trans === 'both' ? th.muted : th.ink} style={{ marginTop: 6, lineHeight: 20 }}>{v.en}</Body> : null}
             {note ? <Body size={12} color={th.accent} style={{ marginTop: 6 }}>{`✎ ${note}`}</Body> : null}
-            <View style={{ flexDirection: 'row', gap: 18, marginTop: 8, alignItems: 'center' }}>
+            {!open && marked(v.n) ? <Feather name="star" size={12} color={th.accent} style={{ marginTop: 6 }} /> : null}
+            {open ? <View style={{ flexDirection: 'row', gap: 18, marginTop: 10, alignItems: 'center' }}>
               <Press onPress={() => markHere(v.n)} hitSlop={6} accessibilityLabel={t('Read up to here')} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 99, borderWidth: 1, borderColor: pr && pr.s === surah && pr.a === v.n ? th.accent : th.line, backgroundColor: pr && pr.s === surah && pr.a === v.n ? th.accentSoft : 'transparent' }}>
                 <Feather name="check" size={13} color={prPos >= posOf(surah, v.n) ? th.accent : th.faint} />
                 <Body size={11.5} weight="semi" color={pr && pr.s === surah && pr.a === v.n ? th.accent : th.muted}>{t('Read up to here')}</Body>
@@ -283,7 +335,7 @@ function Reader({ surah, ayah }) {
               <Press onPress={() => toggleMark(v.n)} hitSlop={8} accessibilityLabel={t('Save')}><Feather name="star" size={16} color={marked(v.n) ? th.accent : th.faint} /></Press>
               <Press onPress={() => { setNoteFor(v.n); setNoteText(note || ''); }} hitSlop={8} accessibilityLabel={t('Note')}><Feather name="edit-3" size={16} color={note ? th.accent : th.faint} /></Press>
               <Press onPress={() => nav.openSheet('shareCard', { arabic: v.ar, en: v.en, bn: v.bn, source: `${t('Quran')} ${surah}:${v.n} · ${meta[2]}`, title: meta[2] })} hitSlop={8} accessibilityLabel={t('Share')}><Feather name="share-2" size={16} color={th.faint} /></Press>
-            </View>
+            </View> : null}
             {noteFor === v.n ? (
               <View style={{ marginTop: 8 }}>
                 <Input value={noteText} onChangeText={setNoteText} placeholder={t('Your note')} multiline style={{ minHeight: 70, textAlignVertical: 'top' }} maxLength={500} />
@@ -293,7 +345,7 @@ function Reader({ surah, ayah }) {
                 </View>
               </View>
             ) : null}
-          </View>
+          </Press>
         );
       }}
     />

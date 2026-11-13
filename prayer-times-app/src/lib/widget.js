@@ -2,7 +2,7 @@
 // countdowns to widget.json; the native widget reads it, shows a live
 // countdown and redraws itself at each prayer and every 5 minutes.
 import { NativeModules, Platform } from 'react-native';
-import { timeAdj, computeDay, formatTime, PRAYER_NAMES, addDays, makruhWindows, dayKeyOf } from './prayer';
+import { setHour24, timeAdj, computeDay, formatTime, PRAYER_NAMES, addDays, makruhWindows, dayKeyOf } from './prayer';
 import { hijriFor, HIJRI_MONTHS, HIJRI_MONTHS_BN } from './hijri';
 import { eventsOnDay } from './events';
 import { eventTitle } from '../data/eventText';
@@ -10,6 +10,7 @@ import { fastingDayInfo } from './alerts';
 import { translate, bnDigits } from '../i18n';
 import { LIGHT_PALETTES, DARK_PALETTES, nightPaletteFor } from '../theme/palettes';
 import { nightOf } from './waqt';
+import { nightStar } from './sky';
 
 // Fallback colours: the ivory card with the light palette. The app passes
 // its own colours (the widget follows the app); the background job reuses
@@ -41,6 +42,7 @@ const DAYS = 4; // yesterday, today and the next two days
 
 // Everything the widget needs, worked out here so the Java side stays simple.
 export function buildWidgetData(s, today, cal, colors = widgetColors(s)) {
+  setHour24(s.time24);
   const lang = s.lang || 'en';
   const T = (k, v) => translate(lang, k, v);
   const N = (x) => (lang === 'bn' ? bnDigits(String(x)) : String(x));
@@ -123,6 +125,9 @@ export function buildWidgetData(s, today, cal, colors = widgetColors(s)) {
       iftar: times[i].Maghrib.getTime(),
       iftarT: N(formatTime(times[i].Maghrib, tz, { compact: true })),
       nextSeheri: next.Fajr.getTime() - buf * 60000,
+      // the night that starts at this day's Maghrib belongs to tomorrow's Hijri day
+      hd: hijriFor(addDays(d, 1), cal).day,
+      star: nightStar(hijriFor(addDays(d, 1), cal), addDays(d, 1).getDay()),
       fast,
       fastN: f && f.type === 'ramadan' ? N(f.day) : '',
     };
@@ -152,6 +157,7 @@ export function buildWidgetData(s, today, cal, colors = widgetColors(s)) {
       fastDay: T('Fast day'), ramadanDay: T('Ramadan {n}'),
     },
     bn: lang === 'bn',
+    south: s.coords.latitude < 0,
     days: dayList,
     nights,
     glass: glassColors(dp),

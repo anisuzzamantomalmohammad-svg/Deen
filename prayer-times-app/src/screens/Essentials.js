@@ -5,9 +5,10 @@ import { ScrollView, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useApp } from '../state/store';
 import { useNav } from '../nav';
-import { useTheme, useT, Serif, Body, Arabic, Card } from '../ui/kit';
+import { useTheme, useT, Serif, Body, Arabic, Card, Press, PatternBand } from '../ui/kit';
 import { ScreenTitle } from '../ui/parts';
-import { useLayout } from '../ui/hooks';
+import Svg, { Circle } from 'react-native-svg';
+import { useLayout, monthName, hijriMonthName } from '../ui/hooks';
 import { qiblaBearing, compassPoint, distanceToKaabaKm } from '../lib/prayer';
 
 // The tools, in the order agreed for 1.6.0.
@@ -35,10 +36,20 @@ export default function EssentialsScreen() {
   const qibla = qiblaBearing(latitude, longitude);
   const km = Math.round(distanceToKaabaKm(latitude, longitude));
   const tb = app.data.tasbih || {};
+  const tiles = ESSENTIALS.filter((x) => x.id !== 'timetable' && x.id !== 'tasbih');
   const pairs = [];
-  for (let i = 0; i < ESSENTIALS.length; i += 2) pairs.push(ESSENTIALS.slice(i, i + 2));
+  for (let i = 0; i < tiles.length; i += 2) pairs.push(tiles.slice(i, i + 2));
+  const target = tb.target || 33;
+  const count = tb.count || 0;
+  const tbPct = Math.min(1, (count % target || (count ? target : 0)) / target);
+  const months = [
+    { label: monthName(t.lang, app.today.getMonth()), go: () => nav.push('timetable', { basis: 'regular' }) },
+    { label: t('Ramadan'), go: () => nav.push('timetable', { ramadan: true, tab: 'fasting' }) },
+    { label: hijriMonthName(t.lang, app.hijri(app.today).monthIndex), go: () => nav.push('timetable', { basis: 'hijri' }) },
+  ];
   return (
     <ScrollView contentContainerStyle={{ paddingTop: L.insets.top + 16, paddingHorizontal: L.pad, paddingBottom: L.bottomSpace }} showsVerticalScrollIndicator={false}>
+      <View><PatternBand height={240 + L.insets.top} style={{ top: -(L.insets.top + 16), left: -L.pad, right: -L.pad }} /></View>
       <ScreenTitle title={t('Essentials')} />
 
       {/* Qibla */}
@@ -57,6 +68,40 @@ export default function EssentialsScreen() {
         <Feather name="chevron-right" size={16} color={th.faint} />
       </Card>
 
+      {/* Timetable: three ways in */}
+      <Card style={{ marginTop: 10, padding: 14 }}>
+        <Press onPress={() => nav.push('timetable')} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} accessibilityLabel={t('Timetable')}>
+          <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: th.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+            <Feather name="grid" size={15} color={th.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Body size={14} weight="semi">{t('Timetable')}</Body>
+            <Body size={11.5} color={th.muted}>{t('A whole month of times. Pick a month:')}</Body>
+          </View>
+        </Press>
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+          {months.map((m) => (
+            <Press key={m.label} onPress={m.go} style={{ flex: 1, alignItems: 'center', paddingVertical: 9, paddingHorizontal: 4, borderRadius: 12, borderWidth: 1, borderColor: th.glassLine || th.line, backgroundColor: th.glass }}>
+              <Body size={12} weight="semi" color={th.accent} numberOfLines={1}>{m.label}</Body>
+            </Press>
+          ))}
+        </View>
+      </Card>
+
+      {/* Tasbih: where the count is now */}
+      <Card onPress={() => nav.push('tasbih')} style={{ marginTop: 10, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <Svg width={36} height={36}>
+          <Circle cx={18} cy={18} r={14} stroke={th.line} strokeWidth={4} fill="none" />
+          {tbPct > 0 ? <Circle cx={18} cy={18} r={14} stroke={th.accent} strokeWidth={4} fill="none" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 14 * tbPct} ${2 * Math.PI * 14}`} transform="rotate(-90 18 18)" /> : null}
+        </Svg>
+        <View style={{ flex: 1 }}>
+          <Body size={14} weight="semi">{t('Tasbih')}</Body>
+          <Body size={11.5} color={th.muted}>{t('Total so far: {n}', { n: t.num((tb.total || 0).toLocaleString('en-US')) })}</Body>
+        </View>
+        <Serif size={20} color={th.accent}>{`${t.num(count)} / ${t.num(target)}`}</Serif>
+        <Feather name="chevron-right" size={16} color={th.faint} />
+      </Card>
+
       {/* Tools */}
       {pairs.map((row, ri) => (
         <View key={ri} style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
@@ -66,9 +111,7 @@ export default function EssentialsScreen() {
             return (
               <Card key={x.id} onPress={() => openEssential(nav, x.id)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14, paddingHorizontal: 12 }}>
                 <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: th.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
-                  {x.id === 'tasbih'
-                    ? <Body size={11} weight="bold" color={th.accent}>{t.num(tb.target || 33)}</Body>
-                    : <Feather name={x.icon} size={15} color={th.accent} />}
+                  <Feather name={x.icon} size={15} color={th.accent} />
                 </View>
                 <Body size={13.5} weight="semi" numberOfLines={2} style={{ flex: 1, lineHeight: 17 }}>{t(x.label)}</Body>
               </Card>

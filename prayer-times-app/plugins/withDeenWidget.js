@@ -29,12 +29,13 @@ function withFiles(config) {
   }]);
 }
 
-// The four widgets in the launcher's list.
+// The three widgets in the launcher's list. DeenWidgetProvider stays as a
+// plain receiver (refresh, ticks, clock changes) and is no longer a widget.
 const WIDGETS = [
   { name: '.widget.DeenGlassWidget', label: 'Deen · All 5 prayers', info: 'deen_widget_glass_info' },
   { name: '.widget.DeenDotsWidget', label: 'Deen · Now and next', info: 'deen_widget_dots_info' },
   { name: '.widget.DeenFastWidget', label: 'Deen · Seheri & Iftar', info: 'deen_widget_fast_info' },
-  { name: '.widget.DeenWidgetProvider', label: 'Deen · Countdown', info: 'deen_widget_info', main: true },
+  { name: '.widget.DeenWidgetProvider', label: 'Deen', main: true },
 ];
 
 function withReceiver(config) {
@@ -43,7 +44,7 @@ function withReceiver(config) {
     const names = WIDGETS.map((w) => w.name);
     app.receiver = (app.receiver || []).filter((r) => !names.includes(r.$['android:name']));
     for (const w of WIDGETS) {
-      const action = [{ $: { 'android:name': 'android.appwidget.action.APPWIDGET_UPDATE' } }];
+      const action = w.main ? [] : [{ $: { 'android:name': 'android.appwidget.action.APPWIDGET_UPDATE' } }];
       if (w.main) {
         action.push(
           { $: { 'android:name': 'com.tomal.prayertimes.widget.REFRESH' } },
@@ -54,7 +55,7 @@ function withReceiver(config) {
       app.receiver.push({
         $: { 'android:name': w.name, 'android:exported': 'false', 'android:label': w.label },
         'intent-filter': [{ action }],
-        'meta-data': [{ $: { 'android:name': 'android.appwidget.provider', 'android:resource': `@xml/${w.info}` } }],
+        ...(w.info ? { 'meta-data': [{ $: { 'android:name': 'android.appwidget.provider', 'android:resource': `@xml/${w.info}` } }] } : {}),
       });
     }
     // Short background task that saves a widget tick (HeadlessJS).

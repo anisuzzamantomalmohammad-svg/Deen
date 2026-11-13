@@ -12,10 +12,10 @@ export const PHRASE = {
   subhan: { ar: 'سُبْحَانَ اللَّهِ', en: 'SubhanAllah', bn: 'সুবহানাল্লাহ' },
   hamd: { ar: 'الْحَمْدُ لِلَّهِ', en: 'Alhamdulillah', bn: 'আলহামদুলিল্লাহ' },
   akbar: { ar: 'اللَّهُ أَكْبَرُ', en: 'Allahu Akbar', bn: 'আল্লাহু আকবার' },
-  tahlilFull: { ar: 'لَا إِلَٰهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ', en: 'La ilaha illallahu wahdahu la sharika lah…', bn: 'লা ইলাহা ইল্লাল্লাহু ওয়াহদাহু লা শারিকা লাহু…' },
+  tahlilFull: { ar: 'لَا إِلَٰهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ', en: 'La ilaha illallahu wahdahu la sharika lah…', bn: 'লা ইলাহা ইল্লাল্লাহু ওয়াহদাহু লা শারিকা লাহু…', tr: 'La ilaha illallahu wahdahu la sharika lah, lahul-mulku wa lahul-hamdu, wa huwa ‘ala kulli shay’in qadir' },
   bihamdihi: { ar: 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ', en: 'SubhanAllahi wa bihamdihi', bn: 'সুবহানাল্লাহি ওয়া বিহামদিহি' },
   istighfar: { ar: 'أَسْتَغْفِرُ اللَّهَ', en: 'Astaghfirullah', bn: 'আস্তাগফিরুল্লাহ' },
-  durud: { ar: 'اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى نَبِيِّنَا مُحَمَّدٍ', en: 'Durud Sharif', bn: 'দরুদ শরিফ' },
+  durud: { ar: 'اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى نَبِيِّنَا مُحَمَّدٍ', en: 'Durud Sharif', bn: 'দরুদ শরিফ', tr: 'Allahumma salli wa sallim ‘ala nabiyyina Muhammad' },
   quls: { ar: 'قُلْ هُوَ اللَّهُ · قُلْ أَعُوذُ', en: '3 Quls', bn: 'তিন কুল' },
   kursi: { ar: 'اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ', en: 'Ayat al-Kursi', bn: 'আয়াতুল কুরসি' },
 };

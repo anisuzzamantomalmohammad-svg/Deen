@@ -58,6 +58,8 @@ export default function AlertCheckScreen() {
   const web = Platform.OS === 'web';
   const permOk = web || perm === 'granted';
   const scheduledOk = web || app.alertsStatus === 'scheduled';
+  const maker = `${(Platform.constants && (Platform.constants.Manufacturer || Platform.constants.Brand)) || ''}`.toLowerCase();
+  const xiaomi = /xiaomi|redmi|poco/.test(maker);
 
   return (
     <ScrollView contentContainerStyle={{ paddingTop: L.insets.top + 12, paddingHorizontal: L.pad, paddingBottom: L.insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
@@ -75,6 +77,21 @@ export default function AlertCheckScreen() {
           try { await Linking.sendIntent('android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS'); } catch (e) { Linking.openSettings(); }
           app.update({ batteryCardHidden: true });
         }} />
+      ) : null}
+
+      {xiaomi ? (
+        <>
+          <SectionLabel>{t('Xiaomi, Redmi and POCO phones')}</SectionLabel>
+          <Card style={{ padding: 14 }}>
+            <Body size={13} style={{ lineHeight: 20 }}>{t('These phones close apps to save battery, so alerts can stop. Do these 3 things once:')}</Body>
+            <Body size={13} style={{ lineHeight: 20, marginTop: 6 }}>{t('1. Turn on Autostart for Deen.')}</Body>
+            <Body size={13} style={{ lineHeight: 20 }}>{t('2. Battery saver for Deen: No restrictions.')}</Body>
+            <Body size={13} style={{ lineHeight: 20 }}>{t('3. Open recent apps, hold Deen and tap the lock.')}</Body>
+            <PrimaryButton ghost style={{ marginTop: 10 }} label={t('Open Autostart')} onPress={async () => {
+              try { await Linking.sendIntent('miui.intent.action.OP_AUTO_START'); } catch (e) { Linking.openSettings(); }
+            }} />
+          </Card>
+        </>
       ) : null}
 
       <SectionLabel>{t('Coming up')}</SectionLabel>

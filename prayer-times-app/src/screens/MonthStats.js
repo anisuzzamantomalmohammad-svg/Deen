@@ -1,5 +1,6 @@
 // Month stats for one Hijri month: on time, late and missed; by prayer;
 // late patterns; week by week; why prayers were late (with tips); recent months.
+import { isPausedDay } from '../lib/qada';
 import { nowDate } from '../lib/clock';
 import React, { useMemo } from 'react';
 import { ScrollView, View } from 'react-native';
@@ -36,7 +37,7 @@ export default function MonthStatsScreen({ date }) {
   const at = date || today;
   const now = nowDate();
   const s = useMemo(() => hijriMonthStats({ date: at, data: app.data, today, now, getDay: app.getDay, hijri }), [at.toDateString(), app.data, today, hijri]);
-  const st = useMemo(() => streaks(app.data.completedByDay, today), [app.data.completedByDay, today]);
+  const st = useMemo(() => streaks(app.data.completedByDay, today, (d) => isPausedDay(app.data, d)), [app.data.completedByDay, today]);
   const hist = useMemo(() => lastHijriMonths({ data: app.data, today, now, getDay: app.getDay, hijri, until: s.range.start > today ? today : at }), [app.data, today, hijri, at.toDateString()]);
   const weeks = useMemo(() => weeklyStats({ data: app.data, today, now, getDay: app.getDay }), [app.data, today]);
   const tips = reasonTips({ reasonsBy: s.reasonsBy, data: app.data, monthKey: `${s.range.year}-${s.range.monthIndex}` });

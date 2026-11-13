@@ -55,7 +55,6 @@ export function QadaHistoryScreen() {
       ) : (
         <Card style={{ padding: 14 }}><Body size={13} color={th.muted}>{t('Nothing missed in your calendar.')}</Body></Card>
       )}
-      {missed.some(qasrDay) ? <NotConfirmed style={{ marginTop: 8 }} /> : null}
       <SectionLabel>{t('From before you used Deen')}</SectionLabel>
       <Card onPress={() => nav.push('qadaOlder')} style={{ padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Feather name="hash" size={15} color={th.accent} />

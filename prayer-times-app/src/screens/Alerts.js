@@ -177,6 +177,8 @@ export default function AlertsScreen() {
       <BatteryCard />
       <Card style={{ marginTop: 10, paddingVertical: 2 }}>
         <Row first icon="activity" label={t('Check my alerts')} sub={t('What is set, what comes next, and a test')} onPress={() => nav.push('alertCheck')} />
+        <Row icon="clock" label={t('Time is ending, not ticked yet')} sub={t('15 minutes before a prayer’s time ends, only if you haven’t ticked it')} chevron={false} right={<Toggle value={!!data.endAlert} onChange={(v) => update({ endAlert: v })} />} />
+        {Platform.OS === 'android' ? <Row icon="align-left" label={t('Times in the notification bar')} sub={t('Today’s five times stay at the top of your phone')} chevron={false} right={<Toggle value={!!data.barLine} onChange={(v) => update({ barLine: v })} />} /> : null}
         <Row icon="layers" label={t('One Deen notification at a time')} sub={t('A new alert replaces the older ones')} chevron={false} right={<Toggle value={data.maxTwoAlerts !== false} onChange={(v) => update({ maxTwoAlerts: v })} />} />
       </Card>
       {app.alertsStatus === 'scheduled' ? (

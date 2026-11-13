@@ -4,6 +4,7 @@
 // Essentials tools. A few questions get a direct answer from your own data
 // (today's times, the next Eid, the prayer you miss most). It only ever shows
 // what is already in the app, so it can't make anything up.
+import { isPausedDay } from '../lib/qada';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -186,7 +187,7 @@ export default function AskScreen() {
       };
     }
     if (id === 'streak') {
-      const s = streaks(app.data.completedByDay || {}, app.today);
+      const s = streaks(app.data.completedByDay || {}, app.today, (d) => isPausedDay(app.data, d));
       return { icon: 'zap', title: s.current ? t('{n}-day streak', { n: s.current }) : t('No streak right now'), sub: s.best === 1 ? t('All 5 on time · best 1 day') : t('All 5 on time · best {n} days', { n: s.best }), go: () => nav.push('monthStats', { date: app.today }) };
     }
     if (id === 'eid' || id === 'ramadan') {

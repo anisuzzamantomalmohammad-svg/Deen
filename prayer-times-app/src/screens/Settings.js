@@ -8,7 +8,7 @@ import { Feather } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useApp } from '../state/store';
 import { useNav } from '../nav';
-import { useTheme, useT, Serif, Body, Card, Row, Toggle, Segmented, SectionLabel, Press, Arabic, Input, Divider, PrimaryButton } from '../ui/kit';
+import { useTheme, useT, Serif, Body, Card, Row, Toggle, Segmented, SectionLabel, Press, Arabic, Input, Divider, PrimaryButton, PatternBand } from '../ui/kit';
 import { ScreenTitle, archGeometry } from '../ui/parts';
 import { useLayout, hijriMonthName, timeStr } from '../ui/hooks';
 import { CALC_METHODS, computeDay, timeAdj, adjCityKey } from '../lib/prayer';
@@ -18,6 +18,7 @@ import { exportBackup, pickBackup, pickBackupFolder } from '../lib/backup';
 import { pinWidget } from '../lib/widget';
 import { GoogleSection, applyBackup, AccountCorner } from './Account';
 import { feedbackReady } from '../lib/feedback';
+import { JamaatPage, jamaatCount } from './Extra17';
 import { NotConfirmed } from '../ui/kit';
 import { ESSENTIALS, openEssential } from './Essentials';
 import { translate } from '../i18n';
@@ -89,7 +90,7 @@ function ThemePreview() {
 }
 
 export const PAGE_TITLES = {
-  prayer: 'Prayer times', calendar: 'Calendar & dates', appearance: 'Appearance', language: 'Language & text', home: 'Home screen', backup: 'Backup', about: 'About', safar: 'Safar (travelling)', adjust: 'Adjust times', widget: 'Add widget',
+  prayer: 'Prayer times', calendar: 'Calendar & dates', appearance: 'Appearance', language: 'Language & text', home: 'Home screen', backup: 'Backup', about: 'About', safar: 'Safar (travelling)', adjust: 'Adjust times', widget: 'Add widget', jamaat: 'Jamaat times',
 };
 
 /* --------------------------------------------------------------- pages */
@@ -114,6 +115,8 @@ function PrayerPage() {
         onPress={() => nav.openSheet('choice', { title: t('Seheri ends before Fajr'), value: data.safetyBuffer, options: [0, 3, 5, 10, 15].map((n) => ({ id: n, label: n ? t('{n} minutes before', { n }) : t('At Fajr exactly') })), onPick: (v) => update({ safetyBuffer: v }), note: t('A few minutes of margin so you stop eating safely before Fajr.') })}
       />
       <Row icon="edit-2" label={t('Adjust times')} value={adjCount(data) ? t('{n} changed', { n: adjCount(data) }) : t('Off')} onPress={() => nav.push('settingsPage', { page: 'adjust' })} />
+      <Row icon="users" label={t('Jamaat times')} value={jamaatCount(data) ? t('{n} set', { n: jamaatCount(data) }) : t('Off')} onPress={() => nav.push('settingsPage', { page: 'jamaat' })} />
+      <Row icon="pause-circle" label={t('Pause prayers')} value={data.pause ? t('On') : t('Off')} onPress={() => nav.openSheet('pause')} />
       <Row icon="globe" label={t('Second city')} value={data.secondCityOn && data.secondCity ? t(data.secondCity.name) : t('Off')} onPress={() => nav.openSheet('secondCity')} />
     </Card>
   );
@@ -172,12 +175,11 @@ function AdjustPage() {
   );
 }
 
-// Pick one of the four home-screen widgets.
+// Pick one of the three home-screen widgets.
 const WIDGET_KINDS = [
   { id: 'glass', icon: 'sidebar', label: 'Glass · all 5 prayers', sub: '4×1 · stretches to 4×2' },
   { id: 'dots', icon: 'target', label: 'Dots · now and next', sub: '2×2 · tap the circle to tick' },
   { id: 'fast', icon: 'sunrise', label: 'Seheri & Iftar', sub: '2×2 · the fast, from Seheri to Iftar' },
-  { id: 'card', icon: 'clock', label: 'Countdown card', sub: '2×2 · the next prayer' },
 ];
 function WidgetPage() {
   const app = useApp();
@@ -329,6 +331,11 @@ function AppearancePage() {
         </>
       )}
 
+      <SectionLabel>{t('Effects')}</SectionLabel>
+      <Card style={{ paddingVertical: 2 }}>
+        <Row first icon="zap-off" label={t('Reduce effects')} sub={t('Plain look without the glows, for older phones')} chevron={false} right={<Toggle value={!!data.reduceFx} onChange={(v) => update({ reduceFx: v })} />} />
+      </Card>
+
       <SectionLabel>{t('Night mode')}</SectionLabel>
       <Card style={{ paddingVertical: 2 }}>
         <Row first icon="moon" label={t('Night mode')} sub={t('Dim, calm colours at night, a different one each night')} right={<Toggle value={!!data.nightOn} onChange={(v) => update({ nightOn: v, nightOffDay: null })} />} />
@@ -365,6 +372,9 @@ function LanguagePage() {
 
       <SectionLabel>{t('Language')}</SectionLabel>
       <Segmented value={data.lang} onChange={(v) => update({ lang: v })} options={[{ id: 'en', label: 'English' }, { id: 'bn', label: 'বাংলা' }]} />
+
+      <SectionLabel>{t('Time format')}</SectionLabel>
+      <Segmented value={data.time24 ? '24' : '12'} onChange={(v) => update({ time24: v === '24' })} options={[{ id: '12', label: t('12-hour · 9:56 PM') }, { id: '24', label: t('24-hour · 21:56') }]} />
 
       <SectionLabel>{t('Arabic text size')}</SectionLabel>
       <Segmented value={String(data.arabicSize ?? 1)} onChange={(v) => update({ arabicSize: Number(v) })} options={[{ id: '0', label: t('Small') }, { id: '1', label: t('Normal') }, { id: '2', label: t('Large') }, { id: '3', label: t('Huge') }]} />
@@ -432,7 +442,6 @@ function SafarPage() {
         <Row icon="help-circle" label={t('When I travel')} value={data.safarAsk === 'off' ? t('Off') : t('Ask me')} onPress={() => update({ safarAsk: data.safarAsk === 'off' ? 'ask' : 'off' })} />
       </Card>
       <Body size={12} color={th.muted} style={{ marginTop: 10, lineHeight: 18 }}>{t("In the Hanafi school you're a traveller once you're about 78 km (48 miles) from home and plan to stay less than 15 days. Dhuhr, Asr and Isha are 2 rak'ahs; Fajr, Maghrib and Witr stay the same. Behind a local imam you pray the full 4. Prayers are not joined.")}</Body>
-      <NotConfirmed />
     </View>
   );
 }
@@ -558,7 +567,7 @@ export function SettingsPageScreen({ page }) {
   const nav = useNav();
   const t = useT();
   const L = useLayout();
-  const Page = { widget: WidgetPage, adjust: AdjustPage, prayer: PrayerPage, calendar: CalendarPage, appearance: AppearancePage, language: LanguagePage, home: HomePage, backup: BackupPage, about: AboutPage, safar: SafarPage }[page] || AboutPage;
+  const Page = { jamaat: JamaatPage, widget: WidgetPage, adjust: AdjustPage, prayer: PrayerPage, calendar: CalendarPage, appearance: AppearancePage, language: LanguagePage, home: HomePage, backup: BackupPage, about: AboutPage, safar: SafarPage }[page] || AboutPage;
   return (
     <ScrollView contentContainerStyle={{ paddingTop: L.insets.top + 12, paddingHorizontal: L.pad, paddingBottom: L.insets.bottom + 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <ScreenTitle onBack={nav.pop} title={t(PAGE_TITLES[page] || 'Settings')} />
@@ -576,6 +585,10 @@ export const SETTINGS_INDEX = [
   ['Asr time', 'prayer', 'hanafi shafi madhab'],
   ['Seheri ends before Fajr', 'prayer', 'sehri suhoor buffer'],
   ['Second city', 'prayer', 'dhaka family'],
+  ['Jamaat times', 'jamaat', 'masjid congregation iqamah'],
+  ['Pause prayers', 'sheet:pause', 'period menstruation haid excused'],
+  ['Time format', 'language', '24 hour 12 hour clock'],
+  ['Reduce effects', 'appearance', 'glow blur slow battery'],
   ['Adjust times', 'adjust', 'masjid minutes earlier later offset jamaat'],
   ['Alerts', 'alerts', 'notification adhan sound reminder'],
   ['Hijri calendar', 'calendar', 'moon sighting umm al-qura'],
@@ -602,7 +615,7 @@ export const SETTINGS_INDEX = [
   ['Weekly auto backup', 'backup', 'automatic folder'],
   ['Check my alerts', 'tool:alertCheck', 'test notification watch'],
   ['Different buzz per prayer', 'alerts', 'vibration vibrate pattern'],
-  ['Add widget', 'widget', 'home screen countdown'],
+  ['Add widget', 'widget', 'home screen'],
   ['Send feedback', 'tool:feedback', 'suggestion complaint problem bug'],
   ["What's new", 'sheet:whatsNew', 'update changes'],
   ['About', 'about', 'version terms privacy'],
@@ -662,6 +675,7 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView contentContainerStyle={{ paddingTop: L.insets.top + 16, paddingHorizontal: L.pad, paddingBottom: L.bottomSpace }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <View><PatternBand height={240 + L.insets.top} style={{ top: -(L.insets.top + 16), left: -L.pad, right: -L.pad }} /></View>
       <ScreenTitle title={t('Settings')} right={<AccountCorner />} />
       <View style={{ marginTop: 8 }}>
         <Input value={q} onChangeText={setQ} placeholder={t('Search settings')} autoCorrect={false} returnKeyType="search" style={{ paddingRight: 40 }} />
@@ -680,20 +694,35 @@ export default function SettingsScreen() {
         </Card>
       ) : (
         <>
-          <Card style={{ paddingVertical: 2, marginTop: 14 }}>
+          {!data.google ? (
+            <Card active onPress={() => nav.openSheet('account')} style={{ marginTop: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: th.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="shield" size={17} color={th.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Body size={14.5} weight="semi">{t('Keep your prayer log safe')}</Body>
+                <Body size={11.5} color={th.muted}>{t('Sign in with Google. It stays the same on both phones.')}</Body>
+              </View>
+              <Feather name="chevron-right" size={16} color={th.faint} />
+            </Card>
+          ) : null}
+          <SectionLabel>{t('Prayer')}</SectionLabel>
+          <Card style={{ paddingVertical: 2 }}>
             <Row first icon="map-pin" label={t('Location')} value={app.locationName} onPress={() => nav.openSheet('location')} />
             <Row icon="clock" label={t('Prayer times')} value={`${method.id === 'Karachi' ? 'Karachi' : t(method.label)} · ${data.asrMethod === 'Hanafi' ? t('Hanafi') : t('Standard')}${adjCount(data) ? ` · ${t('adjusted')}` : ''}`} onPress={() => go('prayer')} />
             <Row icon="bell" label={t('Alerts')} value={alertsSub} onPress={() => go('alerts')} />
             <Row icon="moon" label={t('Calendar & dates')} value={data.hijriMode === 'ummalqura' ? t('Umm al-Qura') : t('Moon sighting')} onPress={() => go('calendar')} />
             <Row icon="navigation" label={t('Safar (travelling)')} value={data.travelConfirmed ? t('On') : data.safarAsk === 'off' ? t('Off') : t('Ask me')} onPress={() => go('safar')} />
           </Card>
-          <Card style={{ paddingVertical: 2, marginTop: 12 }}>
+          <SectionLabel>{t('Look')}</SectionLabel>
+          <Card style={{ paddingVertical: 2 }}>
             <Row first icon="droplet" label={t('Appearance')} value={`${modeName} · ${colourName}`} onPress={() => go('appearance')} />
             <Row icon="type" label={t('Language & text')} value={data.lang === 'bn' ? 'বাংলা' : 'English'} onPress={() => go('language')} />
             <Row icon="layout" label={t('Home screen')} value={t('{n} cards', { n: homeCardOrder(data.homeCards).filter((c) => !c.hidden).length })} onPress={() => go('home')} />
-            {Platform.OS === 'android' ? <Row icon="smartphone" label={t('Add widget')} onPress={() => go('widget')} /> : null}
+            {Platform.OS === 'android' ? <Row icon="smartphone" label={t('Add widget')} value={t.num(3)} onPress={() => go('widget')} /> : null}
           </Card>
-          <Card style={{ paddingVertical: 2, marginTop: 12 }}>
+          <SectionLabel>{t('Your data')}</SectionLabel>
+          <Card style={{ paddingVertical: 2 }}>
             <Row first icon="upload" label={t('Backup')} value={data.google ? t('Google Drive') : lastBackupDays === null ? t('Never') : lastBackupDays === 0 ? t('Today') : t('{n} days ago', { n: lastBackupDays })} onPress={() => go('backup')} />
             <Row icon="info" label={t('About')} value={`v${t.num(Constants.expoConfig?.version || '1.6.0')}`} onPress={() => go('about')} />
           </Card>

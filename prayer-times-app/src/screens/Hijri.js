@@ -1,10 +1,11 @@
+import { isPausedDay } from '../lib/qada';
 import { nowDate } from '../lib/clock';
 import React, { useMemo, useRef, useState } from 'react';
 import { Animated, Easing, PanResponder, Platform, ScrollView, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useApp } from '../state/store';
 import { useNav } from '../nav';
-import { useTheme, useT, Serif, Body, Label, Card, Press, Arabic, IconBtn } from '../ui/kit';
+import { useTheme, useT, Serif, Body, Label, Card, Press, Arabic, IconBtn, PatternBand } from '../ui/kit';
 import { useLayout, monthName, monthShort, WEEK_LETTERS, hijriMonthName, hijriLabel, longDate, HIJRI_MONTHS_AR, shortDate } from '../ui/hooks';
 import { sameDay, addDays, PRAYER_NAMES } from '../lib/prayer';
 import { eventsOnDay, eclipseOnDay, upcomingEvents } from '../lib/events';
@@ -16,6 +17,7 @@ import { DayTile, BIG_DAYS, MoonBadge, OccStar, FAST_COLORS, OCC_COLOR, rgba } f
 import Svg, { Rect } from 'react-native-svg';
 import { daysAwayText } from './Home';
 import { swipeLock } from '../ui/swipe';
+import { nightStar } from '../lib/sky';
 
 // Everything one calendar day needs, worked out once.
 function dayInfo({ date, h, today, app, ctx, qadaCount, regular, t }) {
@@ -55,6 +57,7 @@ function dayInfo({ date, h, today, app, ctx, qadaCount, regular, t }) {
     n: t.num(regular ? date.getDate() : h.day), sub, subAccent, today: isToday, future,
     state: isToday ? null : prayers && prayers.includes('unanswered') ? 'unanswered' : dayMark(app.data, date, ctx), prayers, fast, occ, big, bigLabel: label,
     safar: !!(app.data.safarDays || {})[key],
+    hd: h.day, star: nightStar(h, date.getDay()), south: app.coords.latitude < 0,
     qadaPrayed: qadaCount || 0, note: !!j.text, evs, ecl,
   };
 }
@@ -145,7 +148,7 @@ export default function HijriScreen() {
     () => (inPast ? rangeStats({ from: range.start, days: range.days, data: app.data, today, now: nowDate(), getDay: app.getDay }) : null),
     [range.start.getTime(), range.days, app.data, today, inPast]
   );
-  const st = useMemo(() => streaks(app.data.completedByDay, today), [app.data.completedByDay, today]);
+  const st = useMemo(() => streaks(app.data.completedByDay, today, (d) => isPausedDay(app.data, d)), [app.data.completedByDay, today]);
   // How many qada were prayed on each day.
   const qadaCounts = useMemo(() => {
     const m = {};
@@ -184,6 +187,7 @@ export default function HijriScreen() {
 
   return (
     <ScrollView contentContainerStyle={{ paddingTop: L.insets.top + 16, paddingHorizontal: L.pad, paddingBottom: L.bottomSpace }} showsVerticalScrollIndicator={false}>
+      <View><PatternBand height={240 + L.insets.top} style={{ top: -(L.insets.top + 16), left: -L.pad, right: -L.pad }} /></View>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Press
           style={{ flex: 1 }}

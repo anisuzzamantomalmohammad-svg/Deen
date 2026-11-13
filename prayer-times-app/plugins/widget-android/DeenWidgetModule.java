@@ -31,13 +31,13 @@ public class DeenWidgetModule extends ReactContextBaseJavaModule {
     Class<?> cls = "glass".equals(kind) ? DeenGlassWidget.class
         : "dots".equals(kind) ? DeenDotsWidget.class
         : "fast".equals(kind) ? DeenFastWidget.class
-        : DeenWidgetProvider.class;
+        : DeenGlassWidget.class;
     pinClass(cls, promise);
   }
 
   @ReactMethod
   public void pin(Promise promise) {
-    pinClass(DeenWidgetProvider.class, promise);
+    pinClass(DeenGlassWidget.class, promise);
   }
 
   private void pinClass(Class<?> cls, Promise promise) {

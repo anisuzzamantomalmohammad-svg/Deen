@@ -1,5 +1,6 @@
 // Year in review: one Hijri year of prayers, month by month. Opens from the
 // 1 Muharram alert, or from the month report.
+import { isPausedDay } from '../lib/qada';
 import { nowDate } from '../lib/clock';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
@@ -36,7 +37,7 @@ export default function YearReviewScreen({ year: initial }) {
     }
     return out;
   }, [s.start.toDateString(), data, today]);
-  const st = streaks(data.completedByDay, today);
+  const st = streaks(data.completedByDay, today, (d) => isPausedDay(data, d));
   const end = addDays(s.start, s.days - 1);
 
   return (

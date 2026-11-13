@@ -4,7 +4,7 @@
 // biggest days and a thin gold strip on the days you prayed qada.
 import React from 'react';
 import { View } from 'react-native';
-import Svg, { Rect, Circle, Polygon, G, Defs, LinearGradient, Stop, Mask } from 'react-native-svg';
+import Svg, { Rect, Circle, Polygon, Path, G, Defs, LinearGradient, Stop, Mask } from 'react-native-svg';
 import { Body } from './kit';
 import { ROYAL } from '../theme/daily';
 
@@ -63,6 +63,31 @@ export function OccStar({ x, y, color, r = 4 }) {
   return <Polygon points={star(x, y, r)} fill={color} />;
 }
 
+// The tile's outline: a small pointed arch.
+const archPath = (W, H, inset = 0) => {
+  const a = inset;
+  const r = 9;
+  return `M${a},${H - r} L${a},15 Q${a},6 ${W / 2},${a} Q${W - a},6 ${W - a},15 L${W - a},${H - r} Q${W - a},${H - a} ${W - r},${H - a} L${r},${H - a} Q${a},${H - a} ${a},${H - r} Z`;
+};
+
+// That night's moon in its real shape (Hijri day 1 to 30), with a star on
+// the nights that mean something.
+export function TinyMoon({ x, y, r = 3, hd, south, star = 0, color }) {
+  const tt = Math.max(0, Math.min(29, hd - 1)) / 29.5;
+  const cs = Math.cos(2 * Math.PI * tt);
+  const litRight = (tt <= 0.5) !== !!south;
+  const bulgeRight = (cs > 0) === litRight;
+  const rx = (r * Math.abs(cs)).toFixed(2);
+  return (
+    <G>
+      <Circle cx={x} cy={y} r={r} fill={rgba(color, 0.18)} />
+      {hd > 1 ? <Path d={`M${x},${y - r} A${r},${r} 0 0 ${litRight ? 1 : 0} ${x},${y + r} A${rx},${r} 0 0 ${bulgeRight ? 0 : 1} ${x},${y - r} Z`} fill={color} /> : null}
+      {star ? <Polygon points={star4(x + r + 3.2, y - 1.5, star > 1 ? 2.6 : 1.8)} fill={color} opacity={star > 1 ? 1 : 0.75} /> : null}
+    </G>
+  );
+}
+const star4 = (x, y, r) => [[0, -r], [r * 0.3, -r * 0.3], [r, 0], [r * 0.3, r * 0.3], [0, r], [-r * 0.3, r * 0.3], [-r, 0], [-r * 0.3, -r * 0.3]].map(([a, b]) => `${(x + a).toFixed(2)},${(y + b).toFixed(2)}`).join(' ');
+
 /**
  * th: theme. day: {
  *   n, sub, subAccent, today, future, state ('ok'|'qada'|'missed'|'unanswered'|null), safar,
@@ -72,7 +97,8 @@ export function OccStar({ x, y, color, r = 4 }) {
  */
 export function DayTile({ th, day, width = 44 }) {
   const W = 40;
-  const H = 44;
+  const H = 48;
+  const arch = archPath(W, H);
   const light = th.isLight;
   const pc = { ontime: th.ok, qada: th.amber, missed: th.red, unanswered: rgba(th.amber, 0.45) };
   let fill = null;
@@ -112,36 +138,37 @@ export function DayTile({ th, day, width = 44 }) {
         <G transform={`translate(${x0},0)`}>
           {royal ? (
             <>
-              <Rect x={0} y={0} width={W} height={H} rx={11} fill={`url(#rg${day.n}${day.big ? day.big[0] : ''})`} />
+              <Path d={arch} fill={`url(#rg${day.n}${day.big ? day.big[0] : ''})`} />
               <G opacity={0.22}>
-                <Rect x={W / 2 - 10} y={H / 2 - 10} width={20} height={20} fill="none" stroke="#fff" strokeWidth={1} />
-                <Rect x={W / 2 - 10} y={H / 2 - 10} width={20} height={20} fill="none" stroke="#fff" strokeWidth={1} rotation={45} origin={`${W / 2},${H / 2}`} />
+                <Rect x={W / 2 - 9} y={H / 2 - 5} width={18} height={18} fill="none" stroke="#fff" strokeWidth={1} />
+                <Rect x={W / 2 - 9} y={H / 2 - 5} width={18} height={18} fill="none" stroke="#fff" strokeWidth={1} rotation={45} origin={`${W / 2},${H / 2 + 4}`} />
               </G>
-              <OccStar x={W - 7} y={7} color={rgba('#FFFFFF', 0.9)} r={3.4} />
+              <OccStar x={W - 7} y={14} color={rgba('#FFFFFF', 0.9)} r={3.4} />
             </>
           ) : (
             <>
-              {fill ? <Rect x={0} y={0} width={W} height={H} rx={11} fill={fill} /> : null}
-              {stroke ? <Rect x={0.5} y={0.5} width={W - 1} height={H - 1} rx={10.5} fill="none" stroke={stroke} strokeWidth={dashed ? 1.2 : 1} strokeDasharray={dashed ? '3 2.5' : undefined} /> : null}
-              {day.occ ? <OccStar x={W - 7} y={7} color={light ? OCC_COLOR.light : OCC_COLOR.dark} /> : null}
+              <Path d={arch} fill={fill || (day.future ? 'none' : th.glass || 'none')} />
+              <Path d={archPath(W, H, 0.5)} fill="none" stroke={stroke || th.glassLine || th.line} strokeWidth={dashed ? 1.2 : stroke ? 1 : 0.7} strokeDasharray={dashed ? '3 2.5' : undefined} />
+              {day.occ ? <OccStar x={W - 7} y={12.5} color={light ? OCC_COLOR.light : OCC_COLOR.dark} r={3.6} /> : null}
             </>
           )}
-          {fastColor ? <MoonBadge x={7.5} y={7.5} color={fastColor} fasted={day.fast.fasted} scale={1.05} /> : null}
-          {day.safar ? <SafarMark x={fastColor ? (day.occ ? null : W - 7) : 7.5} y={7.5} color={th.accent} /> : null}
+          {day.hd ? <TinyMoon x={W / 2 - (day.star ? 2 : 0)} y={7.5} hd={day.hd} south={day.south} star={day.star} color={royal ? '#FFFFFF' : day.today ? ink : light ? th.accent : ink} /> : null}
+          {fastColor ? <MoonBadge x={7} y={12.5} color={fastColor} fasted={day.fast.fasted} scale={0.95} /> : null}
+          {day.safar ? <SafarMark x={fastColor ? (day.occ ? null : W - 7) : 7} y={12.5} color={th.accent} /> : null}
           {day.prayers && !royal ? day.prayers.map((s, i) => (
             <Rect key={i} x={7 + i * 5.6} y={H - 6} width={4.4} height={2.6} rx={1.3} fill={s && pc[s] ? pc[s] : day.today ? rgba(th.cardInk, 0.22) : rgba(th.ink, 0.12)} />
           )) : null}
-          {day.qadaPrayed ? <Rect x={2.4} y={15} width={2} height={Math.min(14, 4 + day.qadaPrayed * 3)} rx={1} fill={th.amber} /> : null}
+          {day.qadaPrayed ? <Rect x={2.4} y={21} width={2} height={Math.min(14, 4 + day.qadaPrayed * 3)} rx={1} fill={th.amber} /> : null}
         </G>
       </Svg>
-      <View style={{ width: W, height: H, alignItems: 'center', justifyContent: 'center', paddingBottom: day.prayers ? 4 : 0 }}>
-        <Body size={15} weight={day.today || royal ? 'bold' : 'semi'} color={ink} maxScale={1.15} style={[{ lineHeight: 18 }, day.future && !day.today && !royal && { opacity: 0.6 }]}>{day.n}</Body>
+      <View style={{ width: W, height: H, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 14 }}>
+        <Body size={14.5} weight={day.today || royal ? 'bold' : 'semi'} color={ink} maxScale={1.1} style={[{ lineHeight: 17 }, day.future && !day.today && !royal && { opacity: 0.6 }]}>{day.n}</Body>
         <Body size={8.5} numberOfLines={1} color={day.subAccent && !day.today && !royal ? th.accent : subInk} maxScale={1.1} style={[{ lineHeight: 11 }, day.future && !day.today && !royal && { opacity: 0.7 }]}>
           {day.sub}
           {day.note ? <Body size={8.5} color={day.today ? ink : th.note} style={{ lineHeight: 11 }}> ●</Body> : null}
         </Body>
       </View>
-      {royal && day.big ? <Body size={8} weight="bold" color={th.isLight ? royal.accent : royal.gold || royal.accent} maxScale={1} style={{ marginTop: 2, letterSpacing: 0.4 }}>{day.bigLabel || day.big[1]}</Body> : null}
+      {royal && day.big ? <Body size={8} weight="bold" color={th.isLight ? royal.accent : royal.gold || royal.accent} maxScale={1} style={{ marginTop: 0, lineHeight: 11, letterSpacing: 0.4 }}>{day.bigLabel || day.big[1]}</Body> : null}
     </View>
   );
 }

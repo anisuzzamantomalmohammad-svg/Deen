@@ -27,6 +27,62 @@ export const fromYmd = (k) => {
 };
 const idOf = (name) => PRAYER_NAMES.indexOf(name) + 1;
 
+// Period pause: on these days nothing is asked, missed or owed.
+// A day's record is true (the whole day), or { f, u } in ms: paused from f
+// (the day it started) and/or until u (the day it ended).
+function pauseRec(data, date) {
+  if (!data) return null;
+  const v = (data.pausedDays || {})[date.toDateString()];
+  if (v) return v;
+  const p = data.pause;
+  if (!p || !p.since) return null;
+  const s = new Date(p.since);
+  const first = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+  if (date < first) return null;
+  return date.getTime() === first.getTime() ? { f: s.getTime() } : true;
+}
+// Is any part of this day paused?
+export function isPaused(data, date) {
+  return !!pauseRec(data, date);
+}
+// Is this whole day paused (used for the fast)?
+export function isPausedDay(data, date) {
+  // the day it starts or ends on counts too: that day's fast isn't valid
+  return !!pauseRec(data, date);
+}
+// Is a prayer whose time ends at `end` inside the pause? One whose time had
+// already ended when the pause began, or was still on when it ended, is not.
+export function pauseCovers(data, date, end) {
+  const v = pauseRec(data, date);
+  if (!v) return false;
+  if (v === true) return true;
+  const e = end ? end.getTime() : 0;
+  return (!v.f || e > v.f) && (!v.u || e <= v.u);
+}
+// Start / end the pause. Ending records the days it covered.
+export function pauseStartPatch(now) {
+  return { pause: { since: now.toISOString() }, dirtyAt: Date.now() };
+}
+export function pauseEndPatch(prev, now) {
+  const p = prev.pause;
+  if (!p || !p.since) return { pause: null };
+  const s = new Date(p.since);
+  const days = { ...(prev.pausedDays || {}) };
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  for (let d = new Date(s.getFullYear(), s.getMonth(), s.getDate()), i = 0; d <= end && i < 60; d = addDays(d, 1), i++) {
+    const first = i === 0;
+    const last = d.getTime() === end.getTime();
+    days[d.toDateString()] = first || last ? { ...(first ? { f: s.getTime() } : {}), ...(last ? { u: now.getTime() } : {}) } : true;
+  }
+  return { pause: null, pausedDays: days, dirtyAt: Date.now() };
+}
+// How many days the pause has run (1 on the first day).
+export function pauseDayNumber(data, today) {
+  if (!data.pause) return 0;
+  const s = new Date(data.pause.since);
+  return Math.round((today - new Date(s.getFullYear(), s.getMonth(), s.getDate())) / 86400000) + 1;
+}
+
 export function qadaOf(data, date, name) {
   return ((data.qadaRecords || {})[date.toDateString()] || {})[idOf(name)] || null;
 }
@@ -51,6 +107,7 @@ export function statusOf(data, date, name, { today, now, getDay }) {
   // When this prayer's own time ends.
   const end = name === 'Fajr' ? day.Sunrise : name === 'Isha' ? next.Fajr : day[PRAYER_NAMES[PRAYER_NAMES.indexOf(name) + 1]];
   if (now < end) return 'pending';
+  if (pauseCovers(data, date, end)) return 'pending';
   // The prayer day ends at the next Fajr.
   if (now < next.Fajr) return 'unanswered';
   return 'missed';

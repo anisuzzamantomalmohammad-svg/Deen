@@ -32,8 +32,20 @@ export function resolveTimezone(latitude, longitude) {
   }
 }
 
+// 24-hour clock (Settings › Language & text). Set by whoever loads the data.
+let HOUR24 = false;
+export const setHour24 = (v) => { HOUR24 = !!v; };
+export const isHour24 = () => HOUR24;
+
 export function formatTime(dateObj, timeZone, { compact = false } = {}) {
   if (!dateObj) return '--:--';
+  if (HOUR24) {
+    try {
+      return dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone }).replace(/^24/, '00');
+    } catch (e) {
+      return `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
+    }
+  }
   try {
     const s = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone });
     return compact ? s.replace(/\s?[AP]M$/i, '') : s;
@@ -156,4 +168,20 @@ export const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMon
 export function splitDuration(ms) {
   const total = Math.max(0, Math.floor(ms / 1000));
   return { h: Math.floor(total / 3600), m: Math.floor((total % 3600) / 60), s: total % 60 };
+}
+
+// Jamaat time at your masjid for one prayer: a fixed clock time, or a number
+// of minutes after the prayer starts. Kept on this phone only.
+export function jamaatTime(data, name, start) {
+  const j = ((data && data.jamaat) || {})[name];
+  if (!j || !start) return null;
+  if (j.mode === 'after') return new Date(start.getTime() + (j.mins || 0) * 60000);
+  if (j.mode === 'fixed') {
+    // the first time this clock reading comes round at or after the prayer starts
+    const d = new Date(start);
+    d.setHours(j.h, j.m, 0, 0);
+    if (d < start) d.setDate(d.getDate() + 1);
+    return d - start > 6 * 3600000 ? null : d;
+  }
+  return null;
 }

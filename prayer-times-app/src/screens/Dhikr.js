@@ -7,7 +7,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { Feather } from '@expo/vector-icons';
 import { useApp } from '../state/store';
 import { useNav } from '../nav';
-import { useTheme, useT, Serif, Body, Label, Arabic, Card, Press, Chip, SectionLabel } from '../ui/kit';
+import { useTheme, useT, Serif, Body, Label, Arabic, Card, Press, Chip, SectionLabel, RingHead } from '../ui/kit';
 import { ScreenTitle } from '../ui/parts';
 import { useLayout } from '../ui/hooks';
 import { nowDate } from '../lib/clock';
@@ -29,8 +29,8 @@ function lastPrayer(app, now) {
   return { day, name: ticked.length ? ticked[ticked.length - 1] : started.length ? started[started.length - 1] : 'Fajr' };
 }
 // Dhikr days end at Fajr, the same as the prayer day.
-export function dhikrDay(app, now = nowDate()) {
-  return now < app.getDay(app.today).Fajr ? addDays(app.today, -1) : app.today;
+export function dhikrDay(app) {
+  return app.dhikrDayOf(app.today);
 }
 
 function dayRec(data, day) {
@@ -60,6 +60,30 @@ function Ring({ done, total, size = 40, stroke = 3.5, children }) {
   );
 }
 
+// One tap on a row's ring: mark it done (or take it back) without opening
+// the counter. "After each prayer" rows tick the latest prayer you've prayed.
+function quickTick(app, d, day, now) {
+  const key = day.toDateString();
+  app.update((p) => {
+    const all = { ...(p.dhikrByDay || {}) };
+    const rec = { ...(all[key] || {}) };
+    const total = dhikrTotal(d);
+    let add = 0;
+    if (d.perPrayer) {
+      const cur = { ...(rec[d.id] || {}) };
+      const id = lastPrayer(app, now);
+      if (cur[id]) delete cur[id]; else { cur[id] = true; add = total; }
+      rec[d.id] = cur;
+    } else {
+      const have = Math.min(rec[d.id] || 0, total);
+      if (have >= total) rec[d.id] = 0; else { add = total - have; rec[d.id] = total; }
+    }
+    all[key] = rec;
+    const count = d.kind === 'read' ? 0 : add;
+    return { dhikrByDay: all, tasbih: count ? { ...(p.tasbih || {}), total: ((p.tasbih || {}).total || 0) + count } : p.tasbih, dirtyAt: Date.now() };
+  });
+}
+
 /* -------------------------- the list (Ibadah) -------------------------- */
 export function DailyDhikrCard() {
   const app = useApp();
@@ -73,7 +97,7 @@ export function DailyDhikrCard() {
   const done = DHIKR.filter((d) => { const [a, b] = progressOf(app.data, d, day); return a >= b; }).length;
   return (
     <View>
-      <SectionLabel right={<Label>{t('{n} of {m}', { n: done, m: DHIKR.length })}</Label>}>{t('Daily dhikr')}</SectionLabel>
+      <RingHead done={done} total={DHIKR.length} title={t('Daily dhikr')} sub={done >= DHIKR.length ? t('All done today') : t('{n} more today', { n: DHIKR.length - done })} />
       {DHIKR_GROUPS.map((g) => {
         const rows = DHIKR.filter((d) => d.group === g.id);
         const isNow = g.id === nowGroup;
@@ -92,9 +116,11 @@ export function DailyDhikrCard() {
                   <Press key={d.id} onPress={() => nav.push('dhikr', { id: d.id })} scaleTo={0.99}>
                     {i > 0 && <View style={{ height: 1, backgroundColor: th.line, marginHorizontal: 14 }} />}
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 14 }}>
-                      <Ring done={a} total={b}>
-                        {full ? <Feather name="check" size={15} color={th.ok} /> : <Body size={9} color={th.muted}>{`${t.num(a)}/${t.num(b)}`}</Body>}
-                      </Ring>
+                      <Press onPress={() => quickTick(app, d, day, now)} hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked: full }} accessibilityLabel={t('Tick {name}', { name: dhikrTitle(d, t.lang) })}>
+                        <Ring done={a} total={b}>
+                          {full ? <Feather name="check" size={15} color={th.ok} /> : <Body size={9} color={th.muted}>{`${t.num(a)}/${t.num(b)}`}</Body>}
+                        </Ring>
+                      </Press>
                       <View style={{ flex: 1 }}>
                         <Body size={14} weight="semi">{dhikrTitle(d, t.lang)}</Body>
                         <Body size={11.5} color={th.muted}>{d.sub[lang]}</Body>
@@ -103,11 +129,9 @@ export function DailyDhikrCard() {
                             {PRAYER_NAMES.map((n, k) => <View key={n} style={{ width: 16, height: 5, borderRadius: 3, backgroundColor: rec[k + 1] ? th.ok : th.line }} />)}
                           </View>
                         ) : null}
-                        <Body size={10.5} color={th.faint} style={{ marginTop: 2 }}>
-                          {d.ref}{d.note ? <Body size={10.5} weight="semi" color={th.amber}>{`  ·  ${NOTE_DIFFER[lang]}`}</Body> : null}
-                        </Body>
                       </View>
-                      <Arabic size={15} color={th.accent} style={{ lineHeight: 28, maxWidth: 110 }} numberOfLines={1}>{PHRASE[d.phrase || d.steps[0].phrase].ar}</Arabic>
+                      {d.note ? <View style={{ borderWidth: 1, borderColor: th.line, borderRadius: 99, paddingHorizontal: 7, paddingVertical: 2 }}><Body size={9.5} color={th.faint}>{NOTE_DIFFER[lang]}</Body></View> : null}
+                      <Feather name="chevron-right" size={15} color={th.faint} />
                     </View>
                   </Press>
                 );
@@ -116,7 +140,7 @@ export function DailyDhikrCard() {
           </View>
         );
       })}
-      <Body size={11} color={th.faint}>{t('Each one shows its hadith. Counts start again each day.')}</Body>
+      <Body size={11} color={th.faint}>{t('Tap a ring to tick it · tap the name to count. Each one shows its hadith inside.')}</Body>
     </View>
   );
 }
@@ -238,7 +262,7 @@ export default function DhikrScreen({ id }) {
 
       <Pressable onPress={tap} style={{ alignItems: 'center', paddingVertical: 18 }} accessibilityRole="button" accessibilityLabel={t('Count')}>
         <Arabic size={phrase.ar.length > 24 ? 22 : 30} color={th.accent} style={{ textAlign: 'center', lineHeight: phrase.ar.length > 24 ? 42 : 54 }}>{phrase.ar}</Arabic>
-        <Body size={12.5} color={th.muted} style={{ fontStyle: 'italic', marginBottom: 12 }}>{phrase[lang]}</Body>
+        <Body size={12.5} color={th.muted} style={{ fontStyle: 'italic', marginBottom: 12 }}>{phrase.tr || phrase[lang]}</Body>
         <Ring done={finished && d.perPrayer ? 1 : d.kind === 'seq' ? stepCount : count} total={d.kind === 'seq' ? stepTotal : finished && d.perPrayer ? 1 : total} size={size} stroke={7}>
           {finished || (d.perPrayer && prayerDone && count === 0) ? (
             <>

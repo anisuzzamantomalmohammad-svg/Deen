@@ -3,7 +3,7 @@
 // Pure functions over the app state so Home, Ibadah and the widget agree.
 import { PRAYER_NAMES, PRAYER_AR, addDays, addMinutes, makruhWindows } from './prayer';
 import { prayerWindow, nightOf, duhaOf } from './waqt';
-import { statusOf, answered, calendarMissed } from './qada';
+import { statusOf, answered, calendarMissed, isPaused, pauseCovers } from './qada';
 
 const AMBER_MS = 15 * 60000;
 
@@ -51,6 +51,7 @@ export function circleState(app, day, name, now) {
   if (st === 'qada') return 'late';
   if (st === 'unanswered') return 'unanswered';
   if (st === 'missed') return 'missed';
+  if (isPaused(app.data, day) && pauseCovers(app.data, day, prayerWindow(name, app.getDay(day), app.getDay(addDays(day, 1))).end)) return 'paused';
   return now < app.getDay(day)[name] ? 'notYet' : 'open';
 }
 

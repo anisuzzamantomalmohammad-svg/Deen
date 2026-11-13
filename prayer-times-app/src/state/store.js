@@ -6,7 +6,7 @@ import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import * as Haptics from 'expo-haptics';
 import {
-  DEFAULT_COORDS, PRAYER_NAMES, computeDay, makruhWindows, resolveTimezone, zonedParts, addDays, addMinutes, timeAdj,
+  DEFAULT_COORDS, PRAYER_NAMES, computeDay, makruhWindows, resolveTimezone, zonedParts, addDays, addMinutes, timeAdj, setHour24,
 } from '../lib/prayer';
 import { computeVisibilityMonths, finaliseMonths, hijriFor } from '../lib/hijri';
 import { scheduleAll, fromYmd, snoozeAlert, trimPresented, clearPrayerAlerts, ymd } from '../lib/alerts';
@@ -14,7 +14,7 @@ import { resolveTheme, nightPaletteFor } from '../theme/palettes';
 import { dailyPalette } from '../theme/daily';
 import { nightOf, prayerWindow } from '../lib/waqt';
 import { isHijriBirthday } from '../lib/birthday';
-import { migrateQada, statusPatch, rakahPatch, answered } from '../lib/qada';
+import { migrateQada, statusPatch, rakahPatch, answered, pauseStartPatch, pauseEndPatch, isPausedDay } from '../lib/qada';
 import { DHIKR, dhikrTotal } from '../data/dhikr';
 import { translate } from '../i18n';
 import { autoBackupDue, writeAutoBackup } from '../lib/backup';
@@ -132,6 +132,22 @@ export const DEFAULTS = {
   lastDriveBackupAt: null,
   googleCardHidden: false,
   calSync: null, // { calendarId, kinds, eventIds, title }
+  reduceFx: false, // plain look without glows (this phone only)
+  // 1.7.0
+  time24: false, // 24-hour clock (this phone only)
+  saveDirUri: null, // folder for "Save to phone" (this phone only)
+  pause: null, // { since } while prayers are paused (period)
+  pausedDays: {}, // { [day]: true } past paused days
+  jamaat: {}, // { [prayer]: { mode: 'fixed', h, m } | { mode: 'after', mins } } this phone only
+  jamaatAlert: false,
+  endAlert: false, // "ends in 15 min, not ticked yet"
+  barLine: false, // next prayer line that stays in the notification shade
+  qadaPlan: null, // { perDay, since }
+  quranPlan: null, // { days, start (iso), from (verse number) }
+  myDuas: [], // [{ id, title, text, at }]
+  fridayChecks: {}, // { [day]: { ghusl, clothes, early, kahf, salawat, dua } }
+  weekReview: true,
+  all5Shown: null, // the day the "All 5 prayed" moment was last shown
   timeAdj: {}, // minutes per prayer, this phone only
   adjPerCity: false,
   adjByCity: {},
@@ -246,6 +262,7 @@ async function placeName(latitude, longitude) {
 
 export function AppProvider({ children }) {
   const [data, setData] = useState(DEFAULTS);
+  setHour24(data.time24);
   const [hydrated, setHydrated] = useState(false);
   const [clock, setClock] = useState(() => nowDate());
   const [toast, setToast] = useState(null);
@@ -470,18 +487,18 @@ export function AppProvider({ children }) {
   const effectiveMode = data.themeMode === 'daynight' ? (dayLight ? 'light' : 'dark') : data.themeMode;
   const dailyId = daily ? daily.palette.id : '';
   const theme = useMemo(
-    () => resolveTheme({ mode: effectiveMode, darkId: data.darkPalette, lightId: data.lightPalette, systemScheme, prohibited: !!activeMakruh, daily: daily && { ...daily.palette, light: (daily.lightPalette || daily.palette).light }, night: nightOn ? nightPaletteFor(nightBase) : false }),
-    [effectiveMode, data.darkPalette, data.lightPalette, systemScheme, !!activeMakruh, dailyId, nightOn, nightBase.toDateString()]
+    () => resolveTheme({ reduceFx: !!data.reduceFx, mode: effectiveMode, darkId: data.darkPalette, lightId: data.lightPalette, systemScheme, prohibited: !!activeMakruh, daily: daily && { ...daily.palette, light: (daily.lightPalette || daily.palette).light }, night: nightOn ? nightPaletteFor(nightBase) : false }),
+    [effectiveMode, data.darkPalette, data.lightPalette, systemScheme, !!activeMakruh, dailyId, nightOn, nightBase.toDateString(), !!data.reduceFx]
   );
 
   /* ---------------- widget ---------------- */
   // The widget follows the app's colours (palette, light/dark, daily colours),
   // without the red of prohibited times or night mode.
   const widgetTheme = useMemo(
-    () => resolveTheme({ mode: effectiveMode, darkId: data.darkPalette, lightId: data.lightPalette, systemScheme, prohibited: false, daily: daily && { ...daily.palette, light: (daily.lightPalette || daily.palette).light }, night: false }),
-    [effectiveMode, data.darkPalette, data.lightPalette, systemScheme, dailyId]
+    () => resolveTheme({ reduceFx: !!data.reduceFx, mode: effectiveMode, darkId: data.darkPalette, lightId: data.lightPalette, systemScheme, prohibited: false, daily: daily && { ...daily.palette, light: (daily.lightPalette || daily.palette).light }, night: false }),
+    [effectiveMode, data.darkPalette, data.lightPalette, systemScheme, dailyId, !!data.reduceFx]
   );
-  const widgetKey = [hydrated, todayKey, settingsKey, coords.timezone, data.lang, widgetTheme.bg, widgetTheme.accent, data.maxTwoAlerts, cal.mode, cal.offset, rawMonths?.key,
+  const widgetKey = [hydrated, todayKey, settingsKey, coords.timezone, data.lang, widgetTheme.bg, widgetTheme.accent, data.maxTwoAlerts, cal.mode, cal.offset, rawMonths?.key, data.time24,
     JSON.stringify(data.completedByDay[today.toDateString()] || {}), JSON.stringify(data.completedByDay[addDays(today, -1).toDateString()] || {}),
     JSON.stringify((data.qadaRecords || {})[today.toDateString()] || {}), JSON.stringify((data.qadaRecords || {})[addDays(today, -1).toDateString()] || {}),
     !!data.travelConfirmed, JSON.stringify(data.journalByDay[today.toDateString()] || {}), JSON.stringify(data.fastPlans || {}), JSON.stringify(data.notFastingByDay || {}), (data.missedFasts || []).length, data.nightOn, data.nightWhen, data.nightOffDay, data.darkPalette, data.safetyBuffer].join('|');
@@ -583,10 +600,18 @@ export function AppProvider({ children }) {
     const sub = AppState.addEventListener('change', (s) => {
       if (!dataRef.current.google) return;
       if (s === 'active') syncNow();
-      else if (s === 'background') backupIfChanged();
+      else if (s === 'background') syncNow().finally(backupIfChanged);
     });
     return () => sub.remove();
   }, []);
+
+  // Send a change to the other phone about 5 seconds after it's made.
+  const syncedDirty = useRef(0);
+  useEffect(() => {
+    if (!hydrated || !data.google || !data.dirtyAt || data.dirtyAt === syncedDirty.current) return undefined;
+    const h = setTimeout(() => { syncedDirty.current = dataRef.current.dirtyAt; syncNow(); }, 5000);
+    return () => clearTimeout(h);
+  }, [hydrated, !!data.google, data.dirtyAt]);
 
   /* ---------------- ticks from the home-screen widget ---------------- */
   useEffect(() => {
@@ -623,14 +648,14 @@ export function AppProvider({ children }) {
 
   /* ---------------- alerts ---------------- */
   const alertKey = [
-    hydrated, data.onboarded, todayKey, coords.latitude.toFixed(2), coords.longitude.toFixed(2), coords.timezone, data.calcMethod, data.asrMethod, data.safetyBuffer, JSON.stringify(timeAdj(data) || {}),
+    hydrated, data.onboarded, todayKey, coords.latitude.toFixed(2), coords.longitude.toFixed(2), coords.timezone, data.calcMethod, data.asrMethod, data.safetyBuffer, JSON.stringify(timeAdj(data) || {}), data.endAlert, data.jamaatAlert, JSON.stringify(data.jamaat || {}), data.time24, JSON.stringify(data.pause || 0),
     data.notificationsEnabled, data.fastingAlerts, data.preReminderMins, JSON.stringify(data.preOff), JSON.stringify(data.adhanOff), JSON.stringify(data.fastPlans),
     data.jumuahReminder, data.kahfReminder, data.moonCheck, data.lang, cal.mode, cal.offset, JSON.stringify(data.hijriOverrides), rawMonths?.key,
     JSON.stringify(data.nudgeOn), data.nudgeLead, data.fajrHijri, data.morningDua, data.tahajjudReminder, data.fridayLastHour, data.newMonthAlert,
     data.eventEve, data.qadrNights, data.dhulHijjah, data.eidMorning, data.taraweehReminder, data.backupReminder, data.lastBackupAt,
     ...[today, addDays(today, -1)].map((d) => JSON.stringify([data.completedByDay[d.toDateString()], (data.qadaRecords || {})[d.toDateString()], (data.tickAt || {})[d.toDateString()]])),
     !!data.travelConfirmed, data.daySummary, data.daySummaryAfter, JSON.stringify(data.notif), data.showEclipses, data.hijriBirthday && JSON.stringify(data.hijriBirthday),
-    data.vibratePerPrayer, data.monthReport, data.zakatReminder, JSON.stringify((data.charity || {}).zakatDay || null),
+    data.vibratePerPrayer, data.barLine, data.monthReport, data.zakatReminder, JSON.stringify((data.charity || {}).zakatDay || null),
   ].join('|');
   useEffect(() => {
     if (!hydrated || !data.onboarded || preview) return undefined;
@@ -754,6 +779,8 @@ export function AppProvider({ children }) {
     setData((prev) => ({ ...prev, ...rakahPatch(prev, dateObj, name, rowKey, on) }));
   }, []);
   const isPrayed = (dateObj, name) => !!data.completedByDay[dateObj.toDateString()]?.[PRAYER_NAMES.indexOf(name) + 1];
+  // The dhikr day runs Fajr to Fajr: before Fajr, today's dhikr ticks belong to yesterday.
+  const dhikrDayOf = useCallback((d) => (d.toDateString() === today.toDateString() && nowDate() < getDay(d).Fajr ? addDays(d, -1) : d), [getDay, todayKey]);
   const toggleSunnah = useCallback((dateObj, k) => {
     const key = dateObj.toDateString();
     if (k === 'roja') {
@@ -778,21 +805,24 @@ export function AppProvider({ children }) {
     }
     // Morning & evening adhkar is the same tick as the Daily dhikr morning and evening rows.
     if (k === 'dhikr') {
+      const dd = dhikrDayOf(dateObj);
+      const dk = dd.toDateString();
       setData((prev) => {
-        const on = !adhkarDone(prev, dateObj);
+        const on = !adhkarDone(prev, dd);
         const all = { ...(prev.dhikrByDay || {}) };
-        const day = { ...(all[key] || {}) };
-        ADHKAR_ROWS.forEach((d) => { day[d.id] = on ? dhikrTotal(d) : 0; });
-        all[key] = day;
-        return { ...prev, dhikrByDay: all, completedSunnahByDay: { ...prev.completedSunnahByDay, [key]: { ...(prev.completedSunnahByDay[key] || {}), dhikr: on } }, dirtyAt: Date.now() };
+        const day = { ...(all[dk] || {}) };
+        let add = 0;
+        ADHKAR_ROWS.forEach((d) => { if (on && d.kind !== 'read') add += Math.max(0, dhikrTotal(d) - (day[d.id] || 0)); day[d.id] = on ? dhikrTotal(d) : 0; });
+        all[dk] = day;
+        return { ...prev, dhikrByDay: all, tasbih: { ...prev.tasbih, total: (prev.tasbih.total || 0) + add }, completedSunnahByDay: { ...prev.completedSunnahByDay, [dk]: { ...(prev.completedSunnahByDay[dk] || {}), dhikr: on } }, dirtyAt: Date.now() };
       });
       return;
     }
     setData((prev) => ({ ...prev, completedSunnahByDay: { ...prev.completedSunnahByDay, [key]: { ...(prev.completedSunnahByDay[key] || {}), [k]: !(prev.completedSunnahByDay[key] || {})[k] } } }));
-  }, [getDay]);
+  }, [getDay, dhikrDayOf]);
   const isSunnahDone = (dateObj, k) => {
     if (k === 'roja') return !!(data.journalByDay[dateObj.toDateString()] || {}).fasted;
-    if (k === 'dhikr') return adhkarDone(data, dateObj);
+    if (k === 'dhikr') return adhkarDone(data, dhikrDayOf(dateObj));
     return !!(data.completedSunnahByDay[dateObj.toDateString()] || {})[k];
   };
   const setStatus = useCallback((dateObj, name, status, extra) => {
@@ -834,12 +864,30 @@ export function AppProvider({ children }) {
     setClock(nowDate());
   }, []);
 
+  // Period pause. Ending it in Ramadan puts each paused fast on the make-up list.
+  const pauseStart = useCallback(() => setData((prev) => ({ ...prev, ...pauseStartPatch(nowDate()) })), []);
+  const pauseEnd = useCallback(() => {
+    setData((prev) => {
+      const now = nowDate();
+      const next = { ...prev, ...pauseEndPatch(prev, now) };
+      const have = new Set((next.missedFasts || []).map((m) => m.day));
+      const add = [];
+      Object.keys(next.pausedDays || {}).forEach((k) => {
+        const d = new Date(k);
+        if (have.has(k) || Number.isNaN(d.getTime())) return;
+        if (hijriFor(d, cal).monthIndex === 8 && isPausedDay(next, d)) add.push({ day: k, reason: 'period', madeUp: null });
+      });
+      return add.length ? { ...next, missedFasts: [...(next.missedFasts || []), ...add] } : next;
+    });
+  }, [cal]);
+
   const value = {
+    pauseStart, pauseEnd,
     data, update, hydrated, clock, setClock, toast, setToast,
     coords, locationName, gps, fetchGps, isAuto: !saved,
     today, todayKey, getDay, todayTimes, cal, hijri, rawMonthsReady: !!rawMonths, shiftMonth, hijriNow, afterMaghrib, daily, fastingToday,
     activeMakruh, theme, haptic, alertsStatus,
-    togglePrayer, setPrayed, tickAll, isPrayed, toggleSunnah, isSunnahDone, setFasted, setStatus, setRakah, nightOn, nightBase, effectiveMode,
+    togglePrayer, setPrayed, tickAll, isPrayed, toggleSunnah, dhikrDayOf, isSunnahDone, setFasted, setStatus, setRakah, nightOn, nightBase, effectiveMode,
     prayerDay, nightDay, preview, startPreview, stopPreview, syncNow,
     arabicScale: ARABIC_SCALES[data.arabicSize] || 1,
     textScale: TEXT_SCALES[data.textSize ?? 1] || 1,
