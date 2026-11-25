@@ -149,7 +149,7 @@ export default function AlertsScreen() {
     setOpen((o) => (o === id ? null : id));
   };
 
-  const hourLabel = (n) => `${t.num(`${((n + 11) % 12) + 1}:00`)} ${n >= 12 ? 'PM' : 'AM'}`;
+  const hourLabel = (n) => (t.lang === 'bn' ? t.num(`${((n + 11) % 12) + 1}:00`) : `${((n + 11) % 12) + 1}:00 ${n >= 12 ? 'PM' : 'AM'}`);
   const kahfLabel = (v) => {
     if (v === 'off') return t('Off');
     if (v === 'fajr') return t('After sunrise');

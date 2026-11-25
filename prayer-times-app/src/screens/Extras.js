@@ -85,19 +85,18 @@ export function PreviewBar() {
 }
 
 // "What's new": a few highlights, tap one to try it.
-export const WHATS_NEW_VERSION = '1.7.0';
+export const WHATS_NEW_VERSION = '1.8.0';
 export function WhatsNewSheet({ onClose }) {
   const app = useApp();
   const nav = useNav();
   const th = useTheme();
   const t = useT();
   const items = [
-    { icon: 'sun', title: t('A new look'), body: t('A glass arch on Home with the sun and the real moon.'), go: () => nav.setTab('Home') },
-    { icon: 'users', title: t('Jamaat times'), body: t('Add your mosque’s times and get an alert 10 minutes before.'), go: () => nav.push('settingsPage', { page: 'jamaat' }) },
-    { icon: 'pause-circle', title: t('Pause prayers'), body: t('For period days. Nothing counts as missed while paused.'), go: () => nav.openSheet('pause') },
-    { icon: 'book-open', title: t('Quran finish plan'), body: t('Pick 7, 30 or 60 days and see today’s verses.'), go: () => nav.push('quran') },
-    { icon: 'list', title: t('Qada plan'), body: t('Make up missed prayers a few each day.'), go: () => nav.setTab('Ibadah') },
-    { icon: 'edit-3', title: t('My duas'), body: t('Write your own duas and keep them in one place.'), go: () => nav.push('myDuas') },
+    { icon: 'sunset', title: t('Fasting card with pictures'), body: t('Iftar foods by day, Seheri foods at night, from your own culture.'), go: () => nav.push('settingsPage', { page: 'look' }) },
+    { icon: 'home', title: t('The cream arch is back'), body: t('Smaller, so all five prayers fit on the first screen. Jumu’ah shows on Fridays.'), go: () => nav.push('settingsPage', { page: 'look' }) },
+    { icon: 'bar-chart-2', title: t('Weekly report'), body: t('On Friday under your prayers, in two colours. Old weeks are in Essentials.'), go: () => nav.push('weeks') },
+    { icon: 'calendar', title: t('Fasting page'), body: t('Easy to find in Essentials, with the next Sunnah fast to plan.'), go: () => nav.push('fasting') },
+    { icon: 'moon', title: t('Softer dark mode'), body: t('Dimmer text and a deeper background at night, widgets too.'), go: () => nav.push('settingsPage', { page: 'appearance' }) },
   ];
   const done = () => {
     app.update({ whatsNewSeen: WHATS_NEW_VERSION });

@@ -148,7 +148,7 @@ export function Chip({ label, active, onPress, icon, color, style }) {
     <Press
       onPress={onPress}
       style={[
-        { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 99, borderWidth: 1, borderColor: th.line, marginRight: 6 },
+        { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 13, paddingVertical: 9, minHeight: 36, borderRadius: 99, borderWidth: 1, borderColor: th.line, marginRight: 6 },
         active && { borderColor: color || th.accent, backgroundColor: th.accentSoft },
         style,
       ]}

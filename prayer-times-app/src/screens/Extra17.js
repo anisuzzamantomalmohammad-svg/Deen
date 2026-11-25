@@ -12,7 +12,8 @@ import { useLayout, timeStr, shortDate, longDate } from '../ui/hooks';
 import { PRAYER_NAMES, addDays, jamaatTime } from '../lib/prayer';
 import { nowDate } from '../lib/clock';
 import { calendarMissed, olderTotal, qadaPrayedOn, pauseDayNumber, isPausedDay } from '../lib/qada';
-import { rangeStats, streaks } from '../lib/stats';
+import { rangeStats, streaks, firstTrackedDay } from '../lib/stats';
+import { statusOf } from '../lib/qada';
 
 /* ----------------------------- Period pause ----------------------------- */
 export function PauseSheet({ onClose }) {
@@ -218,13 +219,74 @@ export function FridayCard({ now }) {
 
 /* --------------------------- Friday look-back --------------------------- */
 // The last 7 days (Saturday to Friday), shown on Friday after Dhuhr.
+// The week that ended on the most recent Friday (today counts once Dhuhr is in).
+export function weekEnding(app, now) {
+  const { today } = app;
+  let end = addDays(today, -((today.getDay() + 2) % 7)); // last Friday
+  if (today.getDay() === 5 && now < app.getDay(today).Dhuhr) end = addDays(end, -7);
+  return end;
+}
+// One week's numbers, with on time and late/qada per day for the two-colour bars.
+export function weekReport(app, end) {
+  const { data, today } = app;
+  const from = addDays(end, -6);
+  const ctx = { today, now: nowDate(), getDay: app.getDay };
+  const s = rangeStats({ from, days: 7, data, today, now: nowDate(), getDay: app.getDay });
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(from, i);
+    let on = 0;
+    let late = 0;
+    if (d <= today) PRAYER_NAMES.forEach((n) => {
+      const st = statusOf(data, d, n, ctx);
+      if (st === 'ontime') on++;
+      else if (st === 'qada') late++;
+    });
+    return { d, on, late };
+  });
+  return { ...s, days, from, end };
+}
+
+function WeekBars({ days, th, t }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 5, marginTop: 10, alignItems: 'flex-end' }}>
+      {days.map((x) => (
+        <View key={x.d.toDateString()} style={{ flex: 1, alignItems: 'center' }}>
+          <View style={{ width: '100%', height: 40, borderRadius: 6, backgroundColor: th.line, justifyContent: 'flex-end', overflow: 'hidden' }}>
+            <View style={{ height: `${(x.late / 5) * 100}%`, backgroundColor: th.amber }} />
+            <View style={{ height: `${(x.on / 5) * 100}%`, backgroundColor: th.ok }} />
+          </View>
+          <Body size={9.5} color={th.faint} style={{ marginTop: 3 }}>{shortDate(t.lang, x.d).split(' ')[0]}</Body>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+export function WeekKey({ th, t }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+      {[[th.ok, t('On time')], [th.amber, t('Late or qada')]].map(([c, l]) => (
+        <View key={l} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c }} />
+          <Body size={11} color={th.muted}>{l}</Body>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// Weekly report on Home: from Friday Dhuhr until "Seen it" (or the next week).
+// Old weeks stay in Essentials › Weekly reports.
 export function WeekCard({ now }) {
   const app = useApp();
+  const nav = useNav();
   const th = useTheme();
   const t = useT();
   const { today, data } = app;
-  const show = data.weekReview !== false && today.getDay() === 5 && now >= app.getDay(today).Dhuhr;
-  const s = useMemo(() => (show ? rangeStats({ from: addDays(today, -6), days: 7, data, today, now: nowDate(), getDay: app.getDay }) : null), [show, data.completedByDay, data.qadaRecords, today.toDateString()]);
+  const end = weekEnding(app, now);
+  const key = end.toDateString();
+  const show = data.weekReview !== false && data.weekSeen !== key && today - end < 7 * 86400000;
+  const s = useMemo(() => (show ? weekReport(app, end) : null), [show, key, data.completedByDay, data.qadaRecords, today.toDateString()]);
   if (!s || !s.due) return null;
   const prayed = s.onTime + s.qada;
   let worst = null;
@@ -233,26 +295,17 @@ export function WeekCard({ now }) {
     const miss = s.per[n].qada + s.per[n].missed;
     if (miss > wc) { wc = miss; worst = n; }
   });
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = addDays(today, i - 6);
-    const rec = data.completedByDay[d.toDateString()] || {};
-    const q = (data.qadaRecords || {})[d.toDateString()] || {};
-    return { d, n: [1, 2, 3, 4, 5].filter((id) => rec[id] || q[id]).length };
-  });
   return (
-    <Card style={{ marginTop: 14, padding: 14 }}>
-      <Label>{t('This week')}</Label>
-      <Serif size={22} style={{ marginTop: 4 }}>{t('{a} of {b} prayed', { a: prayed, b: s.due })}</Serif>
-      <View style={{ flexDirection: 'row', gap: 5, marginTop: 10, alignItems: 'flex-end' }}>
-        {days.map((x) => (
-          <View key={x.d.toDateString()} style={{ flex: 1, alignItems: 'center' }}>
-            <View style={{ width: '100%', height: 40, borderRadius: 6, backgroundColor: th.line, justifyContent: 'flex-end', overflow: 'hidden' }}>
-              <View style={{ height: `${(x.n / 5) * 100}%`, backgroundColor: th.accent }} />
-            </View>
-            <Body size={9.5} color={th.faint} style={{ marginTop: 3 }}>{shortDate(t.lang, x.d).split(' ')[0]}</Body>
-          </View>
-        ))}
+    <Card style={{ marginTop: 10, padding: 14 }} onPress={() => nav.push('weeks')}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Label color={th.accent}>{t('This week')}</Label>
+        <Press onPress={() => { app.update({ weekSeen: key }); app.setToast(t('Saved in Essentials › Weekly reports')); }} hitSlop={8} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99, borderWidth: 1, borderColor: th.line }}>
+          <Body size={11.5} weight="semi" color={th.muted}>{t('Seen it')}</Body>
+        </Press>
       </View>
+      <Serif size={22} style={{ marginTop: 4 }}>{t('{a} of {b} prayed', { a: prayed, b: s.due })}</Serif>
+      <WeekBars days={s.days} th={th} t={t} />
+      <WeekKey th={th} t={t} />
       {worst ? (
         <Body size={12.5} color={th.muted} style={{ marginTop: 10 }}>
           {t('{name} was the hardest: {a} of {b} on time.', { name: t(worst), a: s.per[worst].onTime, b: s.per[worst].due })}
@@ -260,6 +313,42 @@ export function WeekCard({ now }) {
       ) : <Body size={12.5} color={th.muted} style={{ marginTop: 10 }}>{t('Every prayer on time this week. Alhamdulillah.')}</Body>}
       {worst ? <Body size={13} weight="semi" style={{ marginTop: 4 }}>{t('Next week: {name} on time, one day at a time.', { name: t(worst) })}</Body> : null}
     </Card>
+  );
+}
+
+// Essentials › Weekly reports: every week since tracking began, newest first.
+export function WeeksScreen() {
+  const app = useApp();
+  const th = useTheme();
+  const t = useT();
+  const L = useLayout();
+  const nav = useNav();
+  const start = firstTrackedDay(app.data);
+  const weeks = useMemo(() => {
+    const out = [];
+    let end = weekEnding(app, nowDate());
+    for (let i = 0; i < 26 && start && addDays(end, 0) >= addDays(start, -6); i++) {
+      const r = weekReport(app, end);
+      if (r.due) out.push(r);
+      end = addDays(end, -7);
+    }
+    return out;
+  }, [app.data.completedByDay, app.data.qadaRecords, app.today.toDateString()]);
+  return (
+    <ScrollView contentContainerStyle={{ padding: L.pad, paddingTop: L.insets.top + 14, paddingBottom: L.bottomSpace }}>
+      <ScreenTitle onBack={nav.pop} title={t('Weekly reports')} sub={t('Friday to Friday, newest first')} />
+      {weeks.length ? <WeekKey th={th} t={t} /> : <Empty icon="bar-chart-2" title={t('No weeks yet')} sub={t('Each Friday after Dhuhr your week shows on Home. It is kept here.')} />}
+      {weeks.map((w) => (
+        <Card key={w.end.toDateString()} style={{ marginTop: 10, padding: 14 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Label>{`${shortDate(t.lang, w.from)} – ${shortDate(t.lang, w.end)}`}</Label>
+            <Label color={th.accent}>{t('{p}% on time', { p: w.pct })}</Label>
+          </View>
+          <Serif size={19} style={{ marginTop: 4 }}>{t('{a} of {b} prayed', { a: w.onTime + w.qada, b: w.due })}</Serif>
+          <WeekBars days={w.days} th={th} t={t} />
+        </Card>
+      ))}
+    </ScrollView>
   );
 }
 

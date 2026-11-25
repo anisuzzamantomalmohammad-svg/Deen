@@ -28,7 +28,7 @@ const dark = (id, name, bg, bg2, ink, accent, sun, sheet, ok) => ({
 
 const light = (id, name, bg, bg2, ink, accent, sun, ok) => ({
   id, name, isLight: true, bg, bg2, ink, card: accent, cardInk: '#FFF8EE', accent, sun, sheet: '#FFFBF4', ok,
-  muted: rgba(ink, 0.62), faint: rgba(ink, 0.4), line: rgba(ink, 0.14), soft: rgba(ink, 0.045), soft2: rgba(ink, 0.08),
+  muted: rgba(ink, 0.68), faint: rgba(ink, 0.52), line: rgba(ink, 0.14), soft: rgba(ink, 0.045), soft2: rgba(ink, 0.08),
   accentSoft: rgba(accent, 0.12), accentLine: rgba(accent, 0.45),
   arcAr: '#F6DFB2',
   red: '#C0392B', redSoft: 'rgba(192,57,43,0.12)', amber: '#C9851F',
@@ -104,9 +104,22 @@ const hexRgb = (hex) => {
   return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [40, 60, 60];
 };
 const toHex = (c) => `#${c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('')}`;
-export function withFx(th, reduce) {
+// Dark mode is dimmed a little (1.8): text and the cream arch drop ~10% of
+// their brightness and the page gets a touch deeper, easier on the eyes at night.
+const mix = (a, b, k) => { const x = hexRgb(a); const y = hexRgb(b); return toHex(x.map((v, i) => v + (y[i] - v) * k)); };
+function dim(th) {
+  if (th.isLight || th.nightRed || th.prohibited) return th;
+  const ink = mix(th.ink, th.bg, 0.12);
+  return {
+    ...th, ink, bg: mix(th.bg, '#000000', 0.12), bg2: mix(th.bg2, '#000000', 0.12), sheet: mix(th.sheet, '#000000', 0.1),
+    card: mix(th.card, th.bg, 0.1),
+    muted: rgba(ink, 0.66), faint: rgba(ink, 0.5), line: rgba(ink, 0.15), soft: rgba(ink, 0.055), soft2: rgba(ink, 0.09),
+  };
+}
+export function withFx(th0, reduce) {
+  const th = dim(th0);
   const [r, g, b] = hexRgb(th.bg);
-  const k = 205 / Math.max(r, g, b, 1);
+  const k = 190 / Math.max(r, g, b, 1);
   const L = th.isLight;
   return {
     ...th,
@@ -114,7 +127,7 @@ export function withFx(th, reduce) {
     glass: L ? 'rgba(255,255,255,0.62)' : 'rgba(255,255,255,0.065)',
     glassLine: L ? 'rgba(255,255,255,0.95)' : rgba(th.ink, 0.15),
     glow: L ? (th.sun || th.accent) : toHex([r * k, g * k, b * k]),
-    glowOp: reduce ? 0 : th.nightRed ? 0.16 : L ? 0.42 : 0.5,
+    glowOp: reduce ? 0 : th.nightRed ? 0.16 : L ? 0.42 : 0.4,
     deep: L ? '#FFFFFF' : toHex([r * 0.62, g * 0.62, b * 0.62]),
     skyBody: L ? (th.sun || th.accent) : th.nightRed ? th.cardInk : '#F8F5EE',
   };

@@ -81,7 +81,7 @@ export function planAlerts(s, today, cal, nowMs = Date.now()) {
   const T = (k, v) => translate(lang, k, v);
   const N = (x) => (lang === 'bn' ? bnDigits(x) : String(x));
   const tz = s.coords.timezone;
-  const ft = (d) => N(formatTime(d, tz));
+  const ft = (d) => N(formatTime(d, tz, { compact: lang === 'bn' }));
   const dShort = (d) => `${(lang === 'bn' ? WD_BN : WD_EN)[d.getDay()]} ${N(d.getDate())} ${(lang === 'bn' ? MO_BN : MO_EN)[d.getMonth()]}`;
   const hName = (i) => (lang === 'bn' ? HIJRI_MONTHS_BN[i] : HIJRI_MONTHS[i]);
   const hLabel = (h) => `${N(h.day)} ${hName(h.monthIndex)} ${N(h.year)}`;

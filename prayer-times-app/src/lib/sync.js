@@ -13,7 +13,7 @@ export const DAY_PRAYER_FIELDS = ['completedByDay', 'qadaRecords', 'rakahByDay',
 export const DAY_FIELDS = ['completedSunnahByDay', 'journalByDay', 'fastPlans', 'trackedDays', 'todayTicks', 'jumuahByDay', 'seheriByDay', 'notFastingByDay', 'safarDays', 'pausedDays', 'fridayChecks'];
 export const WHOLE_FIELDS = [
   'qadaCounts', 'olderLog', 'qadaLog', 'taraweeh', 'quranJuz', 'missedFasts', 'zakatFitrDone', 'ramadanChecks', 'quran', 'namesLearnt', 'learn',
-  'surahsLearned', 'favoriteDuaIds', 'tasbih', 'pause', 'qadaPlan', 'quranPlan', 'myDuas', 'safetyBuffer', 'calcMethod', 'asrMethod', 'hijriMode', 'hijriOffset', 'hijriOverrides', 'hijriBirthday', 'charity', 'firstOpenAt',
+  'surahsLearned', 'favoriteDuaIds', 'tasbih', 'pause', 'qadaPlan', 'quranPlan', 'myDuas', 'safetyBuffer', 'calcMethod', 'asrMethod', 'hijriMode', 'hijriOffset', 'hijriOverrides', 'hijriBirthday', 'charity', 'firstOpenAt', 'weekSeen', 'archTimer', 'archInside', 'fastPics', 'culture', 'cultureBand',
 ];
 export const SYNC_FIELDS = [...DAY_PRAYER_FIELDS, ...DAY_FIELDS, ...WHOLE_FIELDS];
 

@@ -147,6 +147,12 @@ export const DEFAULTS = {
   myDuas: [], // [{ id, title, text, at }]
   fridayChecks: {}, // { [day]: { ghusl, clothes, early, kahf, salawat, dua } }
   weekReview: true,
+  weekSeen: null,
+  archTimer: 'inner',
+  archInside: 'niche',
+  fastPics: 'culture',
+  culture: 'auto',
+  cultureBand: 'on',
   all5Shown: null, // the day the "All 5 prayed" moment was last shown
   timeAdj: {}, // minutes per prayer, this phone only
   adjPerCity: false,

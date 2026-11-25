@@ -199,8 +199,8 @@ export default function HijriScreen() {
             <Serif size={27} numberOfLines={1} style={{ flexShrink: 1 }}>{title}</Serif>
             <Feather name="chevron-down" size={16} color={th.faint} style={{ marginLeft: 6 }} />
           </View>
-          <Arabic size={16} color={th.accent} style={{ lineHeight: 28, alignSelf: 'flex-start' }}>{arabic}</Arabic>
-          <Body size={12.5} color={th.muted} numberOfLines={1}>{subLine}</Body>
+          <Arabic size={15} color={th.accent} numberOfLines={1} style={{ lineHeight: 30, marginTop: 2, alignSelf: 'flex-start', writingDirection: 'rtl' }}>{arabic}</Arabic>
+          <Body size={12} color={th.muted} numberOfLines={2} style={{ lineHeight: 16 }}>{subLine}</Body>
         </Press>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <IconBtn name="chevron-left" onPress={() => go(-1)} label={t('Previous month')} />

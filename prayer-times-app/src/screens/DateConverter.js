@@ -59,7 +59,7 @@ export function Field({ label, value, onPrev, onNext, num, onPressValue }) {
       <IconBtn name="chevron-left" onPress={onPrev} label={t('Previous')} size={16} />
       {num ? <NumInput {...num} label={label} /> : (
         <Press onPress={onPressValue} scaleTo={0.97} accessibilityLabel={`${label}: ${value}`} style={{ flex: 1, marginHorizontal: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 6, borderBottomWidth: 1, borderColor: th.line }}>
-          <Serif size={17} numberOfLines={1} adjustsFontSizeToFit>{value}</Serif>
+          <Serif size={17} style={{ lineHeight: 22 }}>{value}</Serif>
           <Feather name="chevron-down" size={13} color={th.muted} />
         </Press>
       )}
@@ -241,7 +241,7 @@ export default function DateConverterScreen() {
           <View style={{ marginTop: 14 }}><DateFields kind="g" value={g} onChange={setG} /></View>
           <Card active style={{ marginTop: 12, padding: 16 }}>
             <Label size={8.5}>{longDate(t.lang, gDate, true)}</Label>
-            <Serif size={22} numberOfLines={1} adjustsFontSizeToFit style={{ marginTop: 4 }}>{hijriLabel(t.lang, gResult)}</Serif>
+            <Serif size={22} style={{ marginTop: 4, lineHeight: 28 }}>{hijriLabel(t.lang, gResult)}</Serif>
           </Card>
         </>
       ) : (
@@ -250,7 +250,7 @@ export default function DateConverterScreen() {
           <Card active style={{ marginTop: 12, padding: 16 }}>
             <Label size={8.5}>{hijriLabel(t.lang, { day: hh.d, monthIndex: hh.m, year: hh.y })}</Label>
             {hResult ? (
-              <Serif size={22} numberOfLines={1} adjustsFontSizeToFit style={{ marginTop: 4 }}>{longDate(t.lang, hResult, true)}</Serif>
+              <Serif size={22} style={{ marginTop: 4, lineHeight: 28 }}>{longDate(t.lang, hResult, true)}</Serif>
             ) : (
               <Body size={13} color={th.muted} style={{ marginTop: 6 }}>{t('This month has 29 days in the calendar used here.')}</Body>
             )}

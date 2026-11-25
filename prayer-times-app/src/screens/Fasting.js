@@ -5,11 +5,14 @@ import { useApp } from '../state/store';
 import { useNav } from '../nav';
 import { useSwipe } from '../ui/swipe';
 import { useTheme, useT, Serif, Body, Label, Card, Press, Arabic, Segmented, Toggle, Row, SectionLabel, PatternBand, IconBtn, FadeSwitch } from '../ui/kit';
-import { SunArc, MoonPhase } from '../ui/parts';
+import { SunArc, MoonPhase, ScreenTitle } from '../ui/parts';
 import { useNow, useLayout, timeStr, shortDate, countdownText, hijriLabel, longDate, WEEK_LETTERS } from '../ui/hooks';
 import { addDays, addMinutes, sameDay } from '../lib/prayer';
 import { fastingDayInfo } from '../lib/alerts';
-import { fastingWindow } from './Home';
+import { fastingWindow, isFastDate } from './Home';
+import { FastCard } from '../ui/fastCard';
+import { pickFastPic } from '../lib/fastPics';
+import { FastingSky } from '../ui/fastSky';
 import { DUAS } from '../data/duas';
 import { duaText } from '../data/duaText';
 import { RamadanFastGrid, BeforeEidChecklist, MissedFastsCard, ShawwalCard, RamadanSummaryCard, ReasonChips, isMissedFast, notFastingPatch, fastingPatch } from './FastingParts';
@@ -30,38 +33,53 @@ function TodayView({ now }) {
   const dt = duaText(dua, t.lang);
   const sizeW = Math.min(L.width - 20, 400);
   const missedToday = ramadan && isMissedFast(app.data, today);
+  const tmr = app.getDay(addDays(today, 1));
+  const fastDate = fw.night ? new Date(fw.to.getFullYear(), fw.to.getMonth(), fw.to.getDate()) : today;
+  const fasting = fw.night ? isFastDate(app, fastDate) : app.fastingToday;
+  const pic = pickFastPic(app, fastDate, fw.night);
   const [askWhy, setAskWhy] = useState(false);
   const onToggle = (v) => {
-    if (!ramadan) { app.setFasted(today, v); return; }
+    if (!ramadan) {
+      app.setFasted(today, v);
+      if (!v) app.update((p) => ({ fastPlans: { ...(p.fastPlans || {}), [today.toDateString()]: false } }));
+      return;
+    }
     if (v) { app.update((p) => fastingPatch(p, today)); app.setFasted(today, true); setAskWhy(false); } else setAskWhy(true);
   };
 
   return (
     <View>
-      <View style={{ alignItems: 'center', marginTop: 4 }}>
-        <View style={{ width: sizeW, height: 170 }}>
-          <SunArc progress={fw.progress} night={fw.night} width={sizeW} height={150} strong />
+      {/* The same card as on Home: picture, countdown and time */}
+      <FastCard
+        big
+        pic={pic}
+        night={fw.night}
+        countdown={countdownText(t, fw.to - now)}
+        at={timeStr(t, fw.to, tz, true)}
+        progress={fw.progress}
+        sub={fasting ? t(pic.name) : t('Not fasting today')}
+        style={{ marginTop: 14 }}
+      />
+      <Card style={{ marginTop: 10, paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: th.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <Feather name={fw.night ? 'sunset' : 'sunrise'} size={14} color={th.accent} />
         </View>
-        <View style={{ alignItems: 'center', marginTop: -86 }}>
-          <Label>{fw.night ? t('Seheri ends in') : t('Iftar in')}</Label>
-          <Serif bold size={44} style={{ marginTop: 2 }}>{countdownText(t, fw.to - now)}</Serif>
-          <Arabic size={20} color={th.accent}>{fw.night ? 'السحور' : 'الإفطار'}</Arabic>
+        <Body size={13} weight="semi" style={{ flex: 1 }}>{fw.night ? t('Iftar was') : t('Seheri ended')}</Body>
+        <Serif size={15}>{timeStr(t, fw.from, tz, true)}</Serif>
+      </Card>
+      <Card style={{ marginTop: 8, paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: th.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <Feather name="calendar" size={14} color={th.accent} />
         </View>
-      </View>
+        <Body size={13} weight="semi" style={{ flex: 1 }}>{t('Tomorrow')}</Body>
+        <Body size={12} color={th.muted}>{`${t('Seheri')} `}</Body>
+        <Serif size={14}>{timeStr(t, addMinutes(tmr.Fajr, -(app.data.safetyBuffer || 0)), tz, true)}</Serif>
+        <Body size={12} color={th.muted}>{` · ${t('Iftar')} `}</Body>
+        <Serif size={14}>{timeStr(t, tmr.Maghrib, tz, true)}</Serif>
+      </Card>
 
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingHorizontal: 4 }}>
-        <View>
-          <Label size={8.5}>{fw.night ? t('Iftar was') : t('Seheri ended')}</Label>
-          <Serif size={17}>{timeStr(t, fw.from, tz)}</Serif>
-        </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Label size={8.5}>{fw.night ? t('Seheri ends') : t('Iftar')}</Label>
-          <Serif size={17}>{timeStr(t, fw.to, tz)}</Serif>
-        </View>
-      </View>
-
-      <Card style={{ marginTop: 16, paddingVertical: 2 }}>
-        <Row first icon="sunrise" label={ramadan ? t('Fasting today · Ramadan day {n}', { n: h.day }) : t("I'm fasting today")} right={<Toggle value={ramadan ? !missedToday : !!j.fasted} onChange={onToggle} />} />
+      <Card style={{ marginTop: 10, paddingVertical: 2 }}>
+        <Row first icon="sunrise" label={ramadan ? t('Fasting today · Ramadan day {n}', { n: h.day }) : t("I'm fasting today")} right={<Toggle value={ramadan ? !missedToday : app.fastingToday} onChange={onToggle} />} />
         {ramadan && (askWhy || missedToday) ? (
           <View style={{ paddingHorizontal: 14, paddingBottom: 12 }}>
             <Body size={12} color={th.muted}>{missedToday ? t('Not fasting today · on your make-up list') : t('Not fasting today? Pick why. It goes on your make-up list.')}</Body>
@@ -292,6 +310,7 @@ function WeekView() {
 }
 
 export default function FastingScreen({ tab: initial }) {
+  const app = useApp();
   const nav = useNav();
   const th = useTheme();
   const t = useT();
@@ -302,12 +321,14 @@ export default function FastingScreen({ tab: initial }) {
   return (
     <View style={{ flex: 1 }} {...swipe}>
       <ScrollView contentContainerStyle={{ paddingBottom: L.insets.bottom + 30 }} showsVerticalScrollIndicator={false}>
-        <PatternBand height={L.insets.top + 260} />
+        <FastingSky height={L.insets.top + 520} width={L.width} />
         <View style={{ paddingTop: L.insets.top + 12, paddingHorizontal: L.pad }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <IconBtn name="chevron-left" onPress={nav.pop} label={t('Back')} />
             <Segmented style={{ flex: 1, backgroundColor: th.sheet }} value={tab} onChange={setTab} options={[{ id: 'today', label: t('Today') }, { id: 'week', label: t('Week') }]} />
-            <View style={{ width: 38 }} />
+          </View>
+          <View style={{ marginTop: 14 }}>
+            <ScreenTitle title={t('Fasting')} arabic="الصيام" sub={`${longDate(t.lang, app.today)} · ${hijriLabel(t.lang, app.hijri(app.today))}`} />
           </View>
           <FadeSwitch k={tab} style={{ flex: 0 }}>
             {tab === 'today' ? <TodayView now={now} /> : <WeekView />}

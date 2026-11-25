@@ -7,7 +7,7 @@ import { useNav } from '../nav';
 import { useTheme, useT, Serif, Body, Label, Arabic, Press, Card, PatternBand, Divider, Tick, NotConfirmed } from '../ui/kit';
 import { skyFor, isFastingDay } from '../lib/sky';
 import { Arch, SunArc, MoonPhase } from '../ui/parts';
-import { useNow, useLayout, longDate, hijriLabel, countdownText, mmss, timeStr, shortDuration, HIJRI_MONTHS_AR, hijriMonthName } from '../ui/hooks';
+import { useNow, useLayout, longDate, hijriLabel, countdownText, mmss, timeStr, shortDuration, shortDate, HIJRI_MONTHS_AR, hijriMonthName } from '../ui/hooks';
 import { PauseBanner, FridayCard, WeekCard, All5Card } from './Extra17';
 import { PRAYER_NAMES, PRAYER_AR, addDays, addMinutes, makruhWindows, computeDay, zonedParts, timeAdj, jamaatTime } from '../lib/prayer';
 import { isHijriBirthday, hijriAge } from '../lib/birthday';
@@ -25,6 +25,9 @@ import { todayItems } from '../data/todayList';
 import { nameOfDay, NAMES_SOURCE } from '../data/names99';
 import { rakahRows } from '../data/prayerInfo';
 import { RamadanSummaryCard, notFastingPatch, fastingPatch, isMissedFast } from './FastingParts';
+import { FastCard, NotFastingStrip } from '../ui/fastCard';
+import { pickFastPic, cultureOf } from '../lib/fastPics';
+import { CultureBand } from '../ui/cultureBand';
 
 export function fastingWindow(app, now) {
   const { today, getDay, data } = app;
@@ -67,7 +70,11 @@ export default function HomeScreen() {
   const look = homeLook(app);
   const fw = fastingWindow(app, now);
 
-  const archW = Math.min(L.width * 0.74, 300);
+  // The arch takes what's left so the five prayer times stay on the first
+  // screen: header ~96, Seheri & Iftar card ~104, prayer row ~140.
+  const fastShown = !(data.homeCards || []).find((c) => c.id === 'fasting' && c.hidden);
+  const room = L.height - L.insets.top - 96 - 18 - (fastShown ? 104 : 0) - 140 - L.bottomSpace + 12;
+  const archW = Math.max(170, Math.min(L.width * 0.6, 250, room / 1.2));
   const archH = archW * 1.2;
 
   const events = useMemo(() => upcomingEvents(today, hijri, 60, { history: false, coords: app.coords, eclipses: app.data.showEclipses !== false }), [today, hijri, app.coords, app.data.showEclipses]);
@@ -82,6 +89,7 @@ export default function HomeScreen() {
       case 'safar': return <SafarCard key={id} />;
       case 'fasting': return <FastingBand key={id} fw={fw} now={now} />;
       case 'prayers': return <PrayerRow key={id} now={now} />;
+      case 'weekly': return <WeekCard key={id} now={now} />;
       case 'extraTimes': return <ExtraTimes key={id} now={now} />;
       case 'today': return <TodayCard key={id} now={now} />;
       case 'kahf': return <KahfCard key={id} now={now} />;
@@ -120,6 +128,12 @@ export default function HomeScreen() {
           <View style={{ marginTop: 18 }}>
             <ArchBlock now={now} width={archW} height={archH} />
           </View>
+          {/* A band of the user's culture's pattern on normal days (not on Ramadan, Eid or other special looks) */}
+          {!look && data.cultureBand !== 'off' ? (
+            <View style={{ marginTop: 10, marginHorizontal: -L.pad }}>
+              <CultureBand culture={cultureOf(app)} width={L.width} />
+            </View>
+          ) : null}
           {app.nightOn ? (
             <Press onPress={() => { app.update({ nightOffDay: app.nightBase.toDateString() }); app.setToast(t('Night mode off until tomorrow night')); }} hitSlop={8} style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Feather name="moon" size={12} color={th.muted} />
@@ -132,7 +146,6 @@ export default function HomeScreen() {
         <View style={{ paddingHorizontal: L.pad, marginTop: 16 }}>
           <Notice now={now} />
           <PauseBanner />
-          <WeekCard now={now} />
           <NeedsAnswerCard now={now} />
 
           {showMoon ? (
@@ -181,7 +194,25 @@ function isLastRamadanDay(app, date) {
 }
 
 /* -------------------------------- Arch -------------------------------- */
+// The arch on Home. ArchFace is drawn inside the arch so it picks up the
+// arch's own colours (dark ink on the cream arch).
 function ArchBlock({ now, width, height }) {
+  const app = useApp();
+  const nav = useNav();
+  const a = archState(app, now);
+  const sky = skyFor({ now, today: app.today, getDay: app.getDay, hijri: app.hijri, data: app.data, latitude: app.coords.latitude });
+  const onPress = () => {
+    if (a.mode === 'current' || a.mode === 'next') nav.openSheet('prayer', { name: a.name, date: a.day });
+    else nav.push('fasting', { tab: 'today' });
+  };
+  return (
+    <Arch width={width} height={height} progress={Math.max(0, Math.min(1, a.progress || 0))} cycleKey={`${a.mode}${a.name || ''}${a.to ? a.to.getTime() : ''}`} onPress={onPress} sky={sky} timer={app.data.archTimer || 'inner'} inside={app.data.archInside || 'niche'}>
+      <ArchFace now={now} width={width} />
+    </Arch>
+  );
+}
+
+function ArchFace({ now, width }) {
   const app = useApp();
   const nav = useNav();
   const th = useTheme();
@@ -195,13 +226,10 @@ function ArchBlock({ now, width, height }) {
   const safarQasr = app.data.travelConfirmed && ['Dhuhr', 'Asr', 'Isha'].includes(a.name) && (a.mode === 'current' || a.mode === 'next');
   const ink = th.ink;
   const amber = a.amber ? th.amber : ink;
-  const sky = skyFor({ now, today: app.today, getDay: app.getDay, hijri: app.hijri, data: app.data, latitude: app.coords.latitude });
-  const onPress = () => {
-    if (a.mode === 'current' || a.mode === 'next') nav.openSheet('prayer', { name: a.name, date: a.day });
-    else nav.push('fasting', { tab: 'today' });
-  };
-  const title = eidMorning ? t('Eid Mubarak') : a.mode === 'current' ? t('{name} time', { name: t(a.name) }) : t(a.title);
-  const bigName = a.mode === 'current' || a.mode === 'next' ? t(a.name) : a.mode === 'iftarNow' ? t('Iftar time') : t(a.title);
+  const title = eidMorning ? t('Eid Mubarak') : a.mode === 'current' ? t('{name} time', { name: a.name === 'Dhuhr' && a.day && a.day.getDay() === 5 && !app.data.travelConfirmed ? t("Jumu'ah") : t(a.name) }) : t(a.title);
+  // On Friday, Dhuhr is Jumu'ah (unless travelling: then it's Dhuhr, shortened).
+  const jumuah = a.name === 'Dhuhr' && a.day && a.day.getDay() === 5 && !app.data.travelConfirmed && (a.mode === 'current' || a.mode === 'next');
+  const bigName = jumuah ? t("Jumu'ah") : a.mode === 'current' || a.mode === 'next' ? t(a.name) : a.mode === 'iftarNow' ? t('Iftar time') : t(a.title);
   const fastN = a.mode === 'iftarNow' && a.fastN ? t('Fast {n} done', { n: a.fastN }) : null;
   const line = (x, i) => {
     const base = { marginTop: 7, paddingTop: 6, borderTopWidth: 1, borderColor: th.line, flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: width - 30 };
@@ -238,9 +266,9 @@ function ArchBlock({ now, width, height }) {
     return null;
   };
   return (
-    <Arch width={width} height={height} progress={Math.max(0, Math.min(1, a.progress || 0))} cycleKey={`${a.mode}${a.name || ''}${a.to ? a.to.getTime() : ''}`} onPress={onPress} sky={sky}>
+    <View style={{ alignItems: 'center' }}>
       <Label color={a.amber ? amber : th.muted} style={{ letterSpacing: 2 }}>{title}</Label>
-      <Arabic size={width * 0.105} color={th.accent} style={{ marginTop: 1, lineHeight: width * 0.155 }}>{a.ar}</Arabic>
+      <Arabic size={width * 0.105} color={th.accent} style={{ marginTop: 1, lineHeight: width * 0.155 }}>{jumuah ? 'الجمعة' : a.ar}</Arabic>
       <Serif size={width * 0.095} color={th.muted} style={{ lineHeight: width * 0.115 }}>{bigName}</Serif>
       {a.to ? <Serif bold size={width * 0.17} color={a.amber ? amber : ink} style={{ lineHeight: width * 0.2 }}>{countdownText(t, a.to - now)}</Serif> : null}
       {fastN ? <Serif bold size={width * 0.1} color={ink} style={{ marginTop: 4 }}>{fastN}</Serif> : null}
@@ -260,7 +288,7 @@ function ArchBlock({ now, width, height }) {
         </View>
       ) : null}
       {(a.lines || []).slice(0, makruh ? 1 : 2).map(line)}
-    </Arch>
+    </View>
   );
 }
 const amberInk = (th) => th.amber;
@@ -574,44 +602,71 @@ export function daysAwayText(t, date, today) {
 /* ------------------------- Seheri / Iftar band ------------------------- */
 // When the arch already counts down to Iftar, the band shows how much of
 // the fast is done instead of a second countdown.
+// The fasting card on Home (1.8). On a fasting day: a picture and "Iftar in".
+// At night before a fast: "Seheri ends in". Otherwise a thin strip that opens
+// the Fasting page and offers the next Sunnah fast.
+export function isFastDate(app, d) {
+  const key = d.toDateString();
+  return app.hijri(d).monthIndex === 8 || !!(app.data.fastPlans || {})[key] || !!(app.data.journalByDay[key] || {}).fasted;
+}
+export function nextSunnahFast(app, from) {
+  for (let i = 0; i < 21; i++) {
+    const d = addDays(from, i);
+    const info = fastingDayInfo(d, app.cal);
+    if (info && info.type === 'sunnah') return { date: d, info };
+  }
+  return null;
+}
+const SUNNAH_NAME = { monday: 'Monday is a Sunnah fast', thursday: 'Thursday is a Sunnah fast', white: 'White Days fast', arafah: 'Day of Arafah fast', ashura: 'Ashura fast', tasua: '9 Muharram fast' };
+
 function FastingBand({ fw, now }) {
   const app = useApp();
   const nav = useNav();
-  const th = useTheme();
   const t = useT();
   const tz = app.coords.timezone;
-  const fasting = app.fastingToday;
-  const sunnah = !fw.night && !fasting ? fastingDayInfo(app.today, app.cal) : null;
-  const quiet = !fw.night && !fasting;
-  const archIftar = fasting && !fw.night && now >= app.getDay(app.today).Asr;
-  const markFast = () => {
-    app.setFasted(app.today, true);
-    app.setToast(t('Marked today as a fast'));
-  };
+  const fastDate = fw.night ? new Date(fw.to.getFullYear(), fw.to.getMonth(), fw.to.getDate()) : app.today;
+  const fasting = fw.night ? isFastDate(app, fastDate) : app.fastingToday;
+  const pic = useMemo(() => (fasting ? pickFastPic(app, fastDate, fw.night) : null), [fasting, fw.night, fastDate.toDateString(), app.data.fastPics, app.data.culture, app.data.lang]);
+  if (fasting) {
+    return (
+      <FastCard
+        pic={pic}
+        night={fw.night}
+        countdown={shortDuration(t, fw.to - now)}
+        at={timeStr(t, fw.to, tz, true)}
+        progress={fw.progress}
+        onPress={() => nav.push('fasting', { tab: 'today' })}
+      />
+    );
+  }
+  const todayInfo = !fw.night ? fastingDayInfo(app.today, app.cal) : null;
+  if (todayInfo && todayInfo.type === 'sunnah') {
+    return (
+      <NotFastingStrip
+        title={t(SUNNAH_NAME[todayInfo.reason] || 'Sunnah fast day')}
+        sub={t('Fasting today? Iftar at {time}', { time: timeStr(t, app.getDay(app.today).Maghrib, tz, true) })}
+        button={t("I'm fasting")}
+        onButton={() => { app.setFasted(app.today, true); app.setToast(t('Marked today as a fast')); }}
+        onPress={() => nav.push('fasting', { tab: 'today' })}
+      />
+    );
+  }
+  const next = nextSunnahFast(app, addDays(fastDate, fw.night ? 0 : 1));
+  if (!next) return null;
+  const key = next.date.toDateString();
+  const planned = !!(app.data.fastPlans || {})[key];
+  const nd = app.getDay(next.date);
   return (
-    <Card onPress={() => nav.push('fasting')} style={{ marginTop: 10, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 9 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <Label size={8.5}>{fw.night ? t('Iftar') : t('Seheri')}</Label>
-        {quiet ? (
-          <Press onPress={markFast} hitSlop={8} accessibilityLabel={t('Mark today as a fast')}>
-            <Label size={8.5} color={sunnah && sunnah.type === 'sunnah' ? th.sfc : th.muted}>{sunnah && sunnah.type === 'sunnah' ? t('Sunnah fast day ›') : t('Not fasting today ›')}</Label>
-          </Press>
-        ) : (
-          <Label size={8.5}>{fw.night ? t('Night ›') : t('{p}% fasted ›', { p: Math.round(fw.progress * 100) })}</Label>
-        )}
-        <Label size={8.5}>{fw.night ? t('Seheri') : t('Iftar')}</Label>
-      </View>
-      <SunArc progress={fw.progress} night={fw.night} width={320} height={44} muted={quiet} />
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Serif size={15}>{timeStr(t, fw.from, tz, true)}</Serif>
-        <Label size={9} color={quiet ? th.muted : th.accent}>
-          {fw.night
-            ? t('Seheri ends in {d}', { d: shortDuration(t, fw.to - now) })
-            : quiet ? t('Maghrib at {time}', { time: timeStr(t, fw.to, tz, true) }) : archIftar ? t('{p}% of the fast done', { p: Math.round(fw.progress * 100) }) : t('Iftar in {d}', { d: shortDuration(t, fw.to - now) })}
-        </Label>
-        <Serif size={15}>{timeStr(t, fw.to, tz, true)}</Serif>
-      </View>
-    </Card>
+    <NotFastingStrip
+      title={t(SUNNAH_NAME[next.info.reason] || 'Sunnah fast day')}
+      sub={`${shortDate(t.lang, next.date)} · ${t('Seheri')} ${timeStr(t, addMinutes(nd.Fajr, -(app.data.safetyBuffer || 0)), tz, true)} · ${t('Iftar')} ${timeStr(t, nd.Maghrib, tz, true)}`}
+      button={planned ? t('Planned') : t('Plan it')}
+      onButton={() => {
+        app.update((p) => ({ fastPlans: { ...(p.fastPlans || {}), [key]: !planned } }));
+        app.setToast(planned ? t('Plan removed') : t('Planned. You’ll get a reminder the night before.'));
+      }}
+      onPress={() => nav.push('fasting', { tab: 'week' })}
+    />
   );
 }
 

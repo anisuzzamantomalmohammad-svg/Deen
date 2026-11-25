@@ -21,6 +21,10 @@ function withFiles(config) {
     const xml = path.join(main, 'res', 'xml');
     fs.mkdirSync(layout, { recursive: true });
     fs.mkdirSync(xml, { recursive: true });
+    // Fasting card pictures for the Seheri & Iftar widget.
+    const draw = path.join(main, 'res', 'drawable-nodpi');
+    fs.mkdirSync(draw, { recursive: true });
+    for (const f of fs.readdirSync(path.join(SRC, 'pics'))) fs.copyFileSync(path.join(SRC, 'pics', f), path.join(draw, f));
     for (const k of ['', '_glass', '_dots', '_fast']) {
       fs.copyFileSync(path.join(SRC, `deen_widget${k}.xml`), path.join(layout, `deen_widget${k}.xml`));
       fs.copyFileSync(path.join(SRC, `deen_widget${k}_info.xml`), path.join(xml, `deen_widget${k}_info.xml`));

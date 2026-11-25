@@ -3,7 +3,7 @@ import { Animated, Easing, Platform, View } from 'react-native';
 import Svg, { Path, Circle, Line, G, Rect, Ellipse, ClipPath, LinearGradient, Text as SvgText, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme, useT, Serif, Body, Label, Press, IconBtn, Arabic, F } from './kit';
+import { useTheme, useT, Serif, Body, Label, Press, IconBtn, Arabic, F, ThemeCtx } from './kit';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
@@ -88,11 +88,14 @@ export function SkyBody({ cx, cy, r, sky, color, glow }) {
   );
 }
 
-// The mihrab arch in frosted glass, with the sun or moon inside its dome and
-// a thin timer line along its edge that completes at the next prayer.
-export function Arch({ width, height, progress, cycleKey, children, onPress, sky }) {
+// The mihrab arch: a cream arch (1.6 look) with a timer that runs along its
+// edge and completes at the next prayer. `timer`: 'inner' (a soft light along
+// the inside edge) or 'line' (thin line). `inside`: 'niche' (a dashed mihrab
+// line), 'lattice', 'glow' or 'plain'. Text inside gets the arch's own ink.
+export function Arch({ width, height, progress, cycleKey, children, onPress, sky, timer = 'inner', inside = 'niche' }) {
   const th = useTheme();
   const geo = useMemo(() => archGeometry(width, height), [width, height]);
+  const inner = useMemo(() => archGeometry(width - 16, height - 8), [width, height]);
   const { d, line, length } = geo;
   const p = useRef(new Animated.Value(progress)).current;
   const flash = useRef(new Animated.Value(0)).current;
@@ -114,46 +117,73 @@ export function Arch({ width, height, progress, cycleKey, children, onPress, sky
     Animated.timing(p, { toValue: progress, duration: 1000, easing: Easing.linear, useNativeDriver: false, isInteraction: false }).start();
   }, [progress, cycleKey]);
   const offset = p.interpolate({ inputRange: [0, 1], outputRange: [length, 0] });
-  const [bx, by] = skyPoint(width, sky ? sky.pos : 0.5);
   const lineColor = th.prohibited ? th.red : th.accent;
+  const fill = th.card;
+  const ink = th.cardInk;
   const fr = Math.max(3, width * 0.018);
+  // the arch's own colours for the text inside it
+  const archTheme = useMemo(() => ({
+    ...th, ink, muted: rgbaHex(ink, 0.62), faint: rgbaHex(ink, 0.42), line: rgbaHex(ink, 0.14),
+    accent: th.isLight ? th.arcAr : (th.prohibited ? th.red : darken(th.accent, 0.78)), glass: rgbaHex(ink, 0.06), glassLine: rgbaHex(ink, 0.15),
+    amber: th.isLight ? '#FFD27A' : '#A86F12', red: th.isLight ? '#FFD9CF' : '#B3261E', redSoft: rgbaHex(th.isLight ? '#FFD9CF' : '#B3261E', 0.25), ok: th.isLight ? '#CFF2DD' : '#23774F',
+    onArch: true,
+  }), [th]);
   const content = (
     <View style={{ width, height }}>
       <Svg width={width} height={height + 2} style={{ position: 'absolute', overflow: 'visible' }}>
         <Defs>
           <ClipPath id="archClip"><Path d={d} /></ClipPath>
-          <RadialGradient id="skyGlow" cx="0.5" cy="0.5" r="0.5">
-            <Stop offset="0" stopColor={th.isLight ? th.skyBody : '#FFFFFF'} stopOpacity={th.fx ? (th.nightRed ? 0.18 : 0.4) : 0} />
-            <Stop offset="1" stopColor={th.isLight ? th.skyBody : '#FFFFFF'} stopOpacity="0" />
-          </RadialGradient>
-          <RadialGradient id="domeGlow" cx="0.5" cy="0.5" r="0.5">
-            <Stop offset="0" stopColor={th.glow} stopOpacity={th.glowOp ? Math.min(0.85, th.glowOp * 1.5) : 0} />
-            <Stop offset="1" stopColor={th.glow} stopOpacity="0" />
-          </RadialGradient>
-          <LinearGradient id="archShade" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={th.isLight ? '#FFFFFF' : '#000000'} stopOpacity={th.isLight ? 0.2 : 0.02} />
-            <Stop offset="0.5" stopColor={th.isLight ? '#FFFFFF' : '#000000'} stopOpacity={th.isLight ? 0.5 : 0.26} />
-            <Stop offset="1" stopColor={th.isLight ? '#FFFFFF' : '#000000'} stopOpacity={th.isLight ? 0.62 : 0.36} />
+          <LinearGradient id="archFill" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={fill} stopOpacity="1" />
+            <Stop offset="1" stopColor={fill} stopOpacity={th.isLight ? 0.92 : 0.94} />
           </LinearGradient>
+          <RadialGradient id="archGlow" cx="0.5" cy="0.35" r="0.6">
+            <Stop offset="0" stopColor="#FFFFFF" stopOpacity={th.isLight ? 0.18 : 0.35} />
+            <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+          </RadialGradient>
         </Defs>
-        <Path d={d} fill={th.deep} fillOpacity={th.isLight ? 0.5 : 0.72} />
+        {th.fx && !th.nightRed ? <Path d={d} fill="none" stroke={th.accent} strokeOpacity={0.16} strokeWidth={14} /> : null}
+        <Path d={d} fill="url(#archFill)" />
         <G clipPath="url(#archClip)">
-          <Ellipse cx={bx} cy={by} rx={width * 0.62} ry={width * 0.5} fill="url(#domeGlow)" />
-          <Rect x="0" y="0" width={width} height={height} fill="url(#archShade)" />
-          <SkyBody cx={bx} cy={by} r={width * 0.043} sky={sky} color={th.skyBody} glow />
+          {inside === 'glow' || inside === 'niche' ? <Rect x="0" y="0" width={width} height={height} fill="url(#archGlow)" /> : null}
+          {inside === 'niche' ? <Path d={inner.line} transform="translate(8 8)" fill="none" stroke={archTheme.accent} strokeOpacity={0.55} strokeWidth={1} strokeDasharray="3 4" /> : null}
+          {inside === 'lattice' ? <Lattice w={width} h={height} color={ink} /> : null}
         </G>
-        <Path d={line} fill="none" stroke={th.glassLine} strokeWidth={1} />
-        <Path d={line} fill="none" stroke={lineColor} strokeOpacity={0.22} strokeWidth={2.5} transform={`translate(0 0)`} />
-        <AnimatedPath d={line} fill="none" stroke={lineColor} strokeWidth={2.5} strokeLinecap="round" strokeDasharray={`${length} ${length}`} strokeDashoffset={offset} />
+        <Path d={line} fill="none" stroke={rgbaHex(ink, 0.12)} strokeWidth={2.5} />
+        {timer === 'inner' ? (
+          <G clipPath="url(#archClip)">
+            <AnimatedPath d={line} fill="none" stroke={lineColor} strokeOpacity={0.28} strokeWidth={16} strokeLinecap="round" strokeDasharray={`${length} ${length}`} strokeDashoffset={offset} />
+          </G>
+        ) : null}
+        <AnimatedPath d={line} fill="none" stroke={lineColor} strokeWidth={timer === 'inner' ? 3 : 2.5} strokeLinecap="round" strokeDasharray={`${length} ${length}`} strokeDashoffset={offset} />
         <AnimatedPath d={line} fill="none" stroke="#FFFFFF" strokeWidth={6} opacity={flash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.6] })} />
         <Path d={`M${geo.cx - fr} ${geo.top - fr} h${fr * 2} v${fr * 2} h${-fr * 2} Z`} fill={lineColor} />
         <Path d={`M${geo.cx} ${geo.top - fr * 1.414} L${geo.cx + fr * 1.414} ${geo.top} L${geo.cx} ${geo.top + fr * 1.414} L${geo.cx - fr * 1.414} ${geo.top} Z`} fill={lineColor} />
       </Svg>
-      <View style={{ position: 'absolute', left: 0, right: 0, top: width * 0.4, bottom: 0, alignItems: 'center' }}>{children}</View>
+      <ThemeCtx.Provider value={archTheme}>
+        <View style={{ position: 'absolute', left: 0, right: 0, top: width * 0.3, bottom: 0, alignItems: 'center' }}>{children}</View>
+      </ThemeCtx.Provider>
     </View>
   );
   return onPress ? <Press onPress={onPress} scaleTo={0.985}>{content}</Press> : content;
 }
+
+function Lattice({ w, h, color }) {
+  const s = 18;
+  const out = [];
+  for (let y = 0; y < h + s; y += s) for (let x = (y / s) % 2 ? s / 2 : 0; x < w + s; x += s) out.push(`M${x} ${y - s / 2}L${x + s / 2} ${y}L${x} ${y + s / 2}L${x - s / 2} ${y}Z`);
+  return <Path d={out.join('')} fill="none" stroke={color} strokeOpacity={0.07} strokeWidth={1} />;
+}
+const rgbaHex = (hex, a) => {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
+  if (!m) return hex;
+  return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
+};
+const darken = (hex, k) => {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
+  if (!m) return hex;
+  return `#${[m[1], m[2], m[3]].map((x) => Math.round(parseInt(x, 16) * k).toString(16).padStart(2, '0')).join('')}`;
+};
 
 /* ---------------------------- Crescent ---------------------------- */
 // Crescent path built from two circles (outer minus inner), no masks needed.
@@ -242,8 +272,8 @@ export function TabBar({ active, onChange }) {
           const on = tab.id === active;
           return (
             <Press key={tab.id} onPress={() => onChange(tab.id)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', height: 64 }} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={t(tab.id)} scaleTo={0.9}>
-              <Feather name={tab.icon} size={19} color={on ? onInk : th.faint} />
-              <Body size={9.5} weight={on ? 'bold' : 'med'} color={on ? onInk : th.faint} style={{ marginTop: 3, lineHeight: 12 }} numberOfLines={1} adjustsFontSizeToFit>{t(tab.id)}</Body>
+              <Feather name={tab.icon} size={19} color={on ? onInk : th.muted} />
+              <Body size={10.5} weight={on ? 'bold' : 'med'} color={on ? onInk : th.muted} style={{ marginTop: 3, lineHeight: 13, letterSpacing: -0.1 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t(tab.id)}</Body>
             </Press>
           );
         })}

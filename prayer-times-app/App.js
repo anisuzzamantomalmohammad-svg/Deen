@@ -62,6 +62,7 @@ const STACK_SCREENS = {
   surahs: () => require('./src/screens/Surahs').default,
   alertCheck: () => require('./src/screens/AlertCheck').default,
   myDuas: () => require('./src/screens/Extra17').default,
+  weeks: () => require('./src/screens/Extra17').WeeksScreen,
   yearReview: () => require('./src/screens/YearReview').default,
 };
 

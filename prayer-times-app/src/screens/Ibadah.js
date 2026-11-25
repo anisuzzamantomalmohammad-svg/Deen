@@ -1,4 +1,5 @@
 import { nowDate } from '../lib/clock';
+import { firstTrackedDay } from '../lib/stats';
 import React, { useMemo, useState } from 'react';
 import { FlatList, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -142,7 +143,7 @@ function JumuahTracker() {
   const t = useT();
   const { today, data } = app;
   const back = (today.getDay() + 2) % 7; // days since the last Friday
-  const fridays = Array.from({ length: 8 }, (_, i) => addDays(today, -back - 7 * i)).filter((d) => d >= new Date(new Date(data.firstOpenAt || today).toDateString()) || (data.completedByDay[d.toDateString()] || {})[2]);
+  const fridays = Array.from({ length: 8 }, (_, i) => addDays(today, -back - 7 * i)).filter((d) => { const f = firstTrackedDay(data) || new Date(data.firstOpenAt || today); return d >= new Date(f.toDateString()) || (data.completedByDay[d.toDateString()] || {})[2]; });
   if (!fridays.length) return null;
   const rows = fridays.map((d) => {
     const key = d.toDateString();

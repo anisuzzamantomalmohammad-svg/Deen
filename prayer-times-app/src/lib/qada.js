@@ -215,8 +215,18 @@ export function tracked(data, key) {
 // Missed prayers from the calendar, oldest first.
 export function calendarMissed(data, ctx, days = 365) {
   const { today } = ctx;
-  const startTs = data.firstOpenAt ? new Date(data.firstOpenAt) : today;
-  const first = new Date(startTs.getFullYear(), startTs.getMonth(), startTs.getDate());
+  // Same start as the calendar and stats: the first day anything was logged
+  // (a restored backup can have days from before this phone's first open).
+  let first = null;
+  const consider = (k) => {
+    const d = new Date(k);
+    if (!Number.isNaN(d.getTime()) && (!first || d < first)) first = d;
+  };
+  Object.keys(data.completedByDay || {}).forEach((k) => { if (Object.values(data.completedByDay[k] || {}).some(Boolean)) consider(k); });
+  Object.keys(data.qadaRecords || {}).forEach(consider);
+  Object.keys(data.trackedDays || {}).forEach(consider);
+  if (!first) first = data.firstOpenAt ? new Date(data.firstOpenAt) : today;
+  first = new Date(first.getFullYear(), first.getMonth(), first.getDate());
   const handled = new Set((data.qadaLog || []).filter((q) => q.kind === 'counted').map((q) => q.key));
   const out = [];
   for (let i = days; i >= 0; i--) {

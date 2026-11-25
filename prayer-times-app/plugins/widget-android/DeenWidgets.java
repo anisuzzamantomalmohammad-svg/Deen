@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.graphics.LinearGradient;
@@ -498,9 +499,9 @@ public class DeenWidgets {
     }
     name = focus != null ? focus.name : "";
     ar = focus != null ? focus.ar : "";
-    // Ramadan: the fast's Iftar or Seheri takes the card once the prayer is answered.
+    // Ramadan or a planned fast: the Iftar or Seheri countdown takes the card once the prayer is answered.
     String fast = day.optString("fast");
-    if ("ramadan".equals(fast) && curSt != 1 && curSt != 2) {
+    if (("ramadan".equals(fast) || "planned".equals(fast)) && curSt != 1 && curSt != 2) {
       long iftar = day.optLong("iftar"), seheri = day.optLong("seheri"), nextSeheri = day.optLong("nextSeheri");
       if (now >= seheri && now < iftar) {
         label = txt(data, "iftarW", "Iftar");
@@ -639,48 +640,74 @@ public class DeenWidgets {
     lp.setLetterSpacing(0.1f);
     drawCentered(c, label.toUpperCase(), w / 2f, pad + 9 * d * s, lp, w - 2 * pad);
 
-    // The arc.
-    float ax0 = pad + 8 * d, ax1 = w - pad - 8 * d;
-    float ay = h * 0.45f;
-    float rise = h * 0.15f;
-    Path arc = new Path();
-    arc.moveTo(ax0, ay);
-    arc.quadTo(w / 2f, ay - rise * 2, ax1, ay);
-    Paint ap = new Paint(Paint.ANTI_ALIAS_FLAG);
-    ap.setStyle(Paint.Style.STROKE);
-    ap.setStrokeWidth(1.5f * d);
-    ap.setStrokeCap(Paint.Cap.ROUND);
-    ap.setColor(alpha(ink, 0x30));
-    ap.setPathEffect(new DashPathEffect(new float[] { 3 * d, 3 * d }, 0));
-    c.drawPath(arc, ap);
-    float frac = phase == 0 ? Math.max(0, Math.min(1, (now - seheri) / (float) Math.max(1, iftar - seheri))) : phase == 1 ? 1 : 0;
-    float bx = (1 - frac) * (1 - frac) * ax0 + 2 * (1 - frac) * frac * (w / 2f) + frac * frac * ax1;
-    float byy = (1 - frac) * (1 - frac) * ay + 2 * (1 - frac) * frac * (ay - rise * 2) + frac * frac * ay;
-    if (phase != 2 && frac > 0.01f) {
-      Paint done = new Paint(ap);
-      done.setPathEffect(null);
-      done.setColor(phase == 1 ? ok : dim ? alpha(ink, 0x66) : accent);
-      Path part = new Path();
-      int steps = 30;
-      for (int i = 0; i <= steps; i++) {
-        float f = frac * i / steps;
-        float x = (1 - f) * (1 - f) * ax0 + 2 * (1 - f) * f * (w / 2f) + f * f * ax1;
-        float y = (1 - f) * (1 - f) * ay + 2 * (1 - f) * f * (ay - rise * 2) + f * f * ay;
-        if (i == 0) part.moveTo(x, y); else part.lineTo(x, y);
-      }
-      c.drawPath(part, done);
+    // On a fasting day (and the night before one) the same picture as the
+    // app's fasting card; otherwise the arc from Seheri to Iftar.
+    Bitmap pic = null;
+    if (keeping && phase != 1) {
+      String id = phase == 2 ? day.optString("picNight", "khejurPani") : show.optString("picDay", "water");
+      int rid = res(ctx, "deen_pic_" + id.toLowerCase(), "drawable");
+      if (rid != 0) pic = BitmapFactory.decodeResource(ctx.getResources(), rid);
     }
-    Paint body = new Paint(Paint.ANTI_ALIAS_FLAG);
-    if (phase == 2) {
-      // A crescent at the Seheri end.
-      float mx = ax0 + 6 * d, my = ay - 12 * d * s, mr = 7.5f * d * s;
-      moon(c, mx, my, mr, day.optInt("hd", 8), data.optBoolean("south", false), day.optInt("star", 0), d);
-    } else if (phase == 1) {
-      body.setColor(ok);
-      body.setShadowLayer(8 * d, 0, 0, alpha(ok, 0xAA));
-      c.drawCircle(bx, byy, 6.5f * d * s, body);
+    if (pic != null) {
+      float top = pad + 14 * d * s, bottom = h * 0.6f - 16 * d * s;
+      float ph = Math.max(10, bottom - top), pw = ph * pic.getWidth() / (float) pic.getHeight();
+      float left = (w - pw) / 2f;
+      Paint bp = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+      c.drawBitmap(pic, null, new RectF(left, top, left + pw, top + ph), bp);
+      // progress under the picture
+      float frac2 = phase == 0 ? Math.max(0, Math.min(1, (now - seheri) / (float) Math.max(1, iftar - seheri))) : 0;
+      Paint track = new Paint(Paint.ANTI_ALIAS_FLAG);
+      track.setColor(alpha(ink, 0x30));
+      float by0 = bottom + 4 * d;
+      c.drawRoundRect(new RectF(w * 0.25f, by0, w * 0.75f, by0 + 3 * d), 2 * d, 2 * d, track);
+      if (frac2 > 0) {
+        track.setColor(accent);
+        c.drawRoundRect(new RectF(w * 0.25f, by0, w * 0.25f + w * 0.5f * frac2, by0 + 3 * d), 2 * d, 2 * d, track);
+      }
     } else {
-      sun(c, bx, byy, 5.5f * d * s, keeping, d);
+      // The arc.
+      float ax0 = pad + 8 * d, ax1 = w - pad - 8 * d;
+      float ay = h * 0.45f;
+      float rise = h * 0.15f;
+      Path arc = new Path();
+      arc.moveTo(ax0, ay);
+      arc.quadTo(w / 2f, ay - rise * 2, ax1, ay);
+      Paint ap = new Paint(Paint.ANTI_ALIAS_FLAG);
+      ap.setStyle(Paint.Style.STROKE);
+      ap.setStrokeWidth(1.5f * d);
+      ap.setStrokeCap(Paint.Cap.ROUND);
+      ap.setColor(alpha(ink, 0x30));
+      ap.setPathEffect(new DashPathEffect(new float[] { 3 * d, 3 * d }, 0));
+      c.drawPath(arc, ap);
+      float frac = phase == 0 ? Math.max(0, Math.min(1, (now - seheri) / (float) Math.max(1, iftar - seheri))) : phase == 1 ? 1 : 0;
+      float bx = (1 - frac) * (1 - frac) * ax0 + 2 * (1 - frac) * frac * (w / 2f) + frac * frac * ax1;
+      float byy = (1 - frac) * (1 - frac) * ay + 2 * (1 - frac) * frac * (ay - rise * 2) + frac * frac * ay;
+      if (phase != 2 && frac > 0.01f) {
+        Paint done = new Paint(ap);
+        done.setPathEffect(null);
+        done.setColor(phase == 1 ? ok : dim ? alpha(ink, 0x66) : accent);
+        Path part = new Path();
+        int steps = 30;
+        for (int i = 0; i <= steps; i++) {
+          float f = frac * i / steps;
+          float x = (1 - f) * (1 - f) * ax0 + 2 * (1 - f) * f * (w / 2f) + f * f * ax1;
+          float y = (1 - f) * (1 - f) * ay + 2 * (1 - f) * f * (ay - rise * 2) + f * f * ay;
+          if (i == 0) part.moveTo(x, y); else part.lineTo(x, y);
+        }
+        c.drawPath(part, done);
+      }
+      Paint body = new Paint(Paint.ANTI_ALIAS_FLAG);
+      if (phase == 2) {
+        // A crescent at the Seheri end.
+        float mx = ax0 + 6 * d, my = ay - 12 * d * s, mr = 7.5f * d * s;
+        moon(c, mx, my, mr, day.optInt("hd", 8), data.optBoolean("south", false), day.optInt("star", 0), d);
+      } else if (phase == 1) {
+        body.setColor(ok);
+        body.setShadowLayer(8 * d, 0, 0, alpha(ok, 0xAA));
+        c.drawCircle(bx, byy, 6.5f * d * s, body);
+      } else {
+        sun(c, bx, byy, 5.5f * d * s, keeping, d);
+      }
     }
 
     // The time left (or the done line) in the middle.

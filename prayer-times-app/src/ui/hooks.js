@@ -80,6 +80,7 @@ export function shortDuration(t, ms) {
 // Time of day in the location's zone, with Bangla digits when needed.
 import { formatTime } from '../lib/prayer';
 export function timeStr(t, date, tz, compact) {
-  const s = formatTime(date, tz, { compact });
+  // Bangla: no AM/PM (reads like the time on a Bangladeshi clock).
+  const s = formatTime(date, tz, { compact: compact || t.lang === 'bn' });
   return t.lang === 'bn' ? bnDigits(s) : s;
 }

@@ -1,3 +1,4 @@
+import { ScreenTitle } from '../ui/parts';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
@@ -87,9 +88,8 @@ export default function TasbihScreen() {
   const rounds = Math.floor(count / target);
   return (
     <View style={{ flex: 1 }}>
-      <View style={{ paddingTop: L.insets.top + 12, paddingHorizontal: L.pad, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <IconBtn name="chevron-left" onPress={nav.pop} label={t('Back')} />
-        <Serif size={22} style={{ flex: 1 }}>{t('Tasbih')}</Serif>
+      <View style={{ paddingTop: L.insets.top + 12, paddingHorizontal: L.pad }}>
+        <ScreenTitle onBack={nav.pop} title={t('Tasbih')} arabic="تسبيح" />
       </View>
       <View style={{ marginTop: 14 }}>
         <HScroll style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: L.pad, paddingRight: L.pad + 26 }}>

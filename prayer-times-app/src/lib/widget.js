@@ -11,6 +11,7 @@ import { translate, bnDigits } from '../i18n';
 import { LIGHT_PALETTES, DARK_PALETTES, nightPaletteFor } from '../theme/palettes';
 import { nightOf } from './waqt';
 import { nightStar } from './sky';
+import { pickFastPic } from './fastPics';
 
 // Fallback colours: the ivory card with the light palette. The app passes
 // its own colours (the widget follows the app); the background job reuses
@@ -31,8 +32,12 @@ export function lastWidgetColors() {
   }
 }
 // The frosted dark glass all four widgets use, in the app's dark palette.
+// Dimmed like the app's dark mode (1.8): text ~12% softer, glass a touch deeper.
+const hx = (h) => { const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h || ''); return m ? [1, 2, 3].map((i) => parseInt(m[i], 16)) : null; };
+const mixHex = (a, b, k) => { const x = hx(a); const y = hx(b); if (!x || !y) return a; return `#${x.map((v, i) => Math.round(v + (y[i] - v) * k).toString(16).padStart(2, '0')).join('')}`; };
 function glassColors(p) {
-  return { fill: p.bg, ink: p.ink, accent: p.accent, ok: p.ok || '#4BBF8A', amber: p.amber || '#E0A43A', red: p.red || '#F2766F' };
+  const dim = !p.nightRed;
+  return { fill: dim ? mixHex(p.bg, '#000000', 0.12) : p.bg, ink: dim ? mixHex(p.ink, p.bg, 0.12) : p.ink, accent: p.accent, ok: p.ok || '#4BBF8A', amber: p.amber || '#E0A43A', red: p.red || '#F2766F' };
 }
 const PRAYER_AR_W = { Fajr: 'الفجر', Sunrise: 'الشروق', Dhuhr: 'الظهر', Asr: 'العصر', Maghrib: 'المغرب', Isha: 'العشاء' };
 const ymd = (d) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
@@ -85,7 +90,7 @@ export function buildWidgetData(s, today, cal, colors = widgetColors(s)) {
       from: prev.at.getTime(),
       to: next.at.getTime(),
       title: T(next.name),
-      line: two ? `${T('at {time}', { time: N(formatTime(next.at, tz)) })} · ${T('Qasr · 2')}` : T('at {time}', { time: N(formatTime(next.at, tz)) }),
+      line: two ? `${T('at {time}', { time: N(formatTime(next.at, tz, { compact: lang === 'bn' })) })} · ${T('Qasr · 2')}` : T('at {time}', { time: N(formatTime(next.at, tz, { compact: lang === 'bn' })) }),
       current: T(prev.name),
       curName: prev.name,
       curId: PRAYER_NAMES.indexOf(prev.name) + 1,
@@ -101,6 +106,7 @@ export function buildWidgetData(s, today, cal, colors = widgetColors(s)) {
   times.forEach((d) => makruhWindows(d).forEach((w) => red.push({ from: w.start.getTime(), to: w.end.getTime() })));
   // Each day's five prayers for the glass and dots widgets, and the fast.
   const buf = s.safetyBuffer || 0;
+  const picApp = { data: s, coords: s.coords, hijri: (x) => hijriFor(x, cal) };
   const missed = new Set((s.missedFasts || []).map((m) => m.day));
   const dayList = days.map((d, i) => {
     const k = d.toDateString();
@@ -129,6 +135,8 @@ export function buildWidgetData(s, today, cal, colors = widgetColors(s)) {
       hd: hijriFor(addDays(d, 1), cal).day,
       star: nightStar(hijriFor(addDays(d, 1), cal), addDays(d, 1).getDay()),
       fast,
+      picDay: (pickFastPic(picApp, d, false) || {}).id || 'water',
+      picNight: (pickFastPic(picApp, addDays(d, 1), true) || {}).id || 'khejurPani',
       fastN: f && f.type === 'ramadan' ? N(f.day) : '',
     };
   });

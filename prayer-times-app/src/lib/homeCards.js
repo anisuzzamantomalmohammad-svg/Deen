@@ -6,6 +6,7 @@ export const HOME_CARDS = {
   safar: 'Safar (travelling)',
   fasting: 'Seheri & Iftar',
   prayers: 'Prayer times',
+  weekly: 'Weekly report',
   extraTimes: 'Duha, Midnight, Tahajjud',
   today: 'Today card',
   kahf: 'Surah Al-Kahf on Fridays',
@@ -17,8 +18,8 @@ export const HOME_CARDS = {
   sunnah: 'Sunnah of the day',
 };
 
-export const NORMAL_ORDER = ['safar', 'fasting', 'prayers', 'extraTimes', 'today', 'kahf', 'special', 'nameOfDay', 'secondCity', 'prohibited', 'comingUp', 'sunnah'];
-export const RAMADAN_ORDER = ['safar', 'fasting', 'today', 'prayers', 'extraTimes', 'special', 'kahf', 'nameOfDay', 'comingUp', 'secondCity', 'prohibited', 'sunnah'];
+export const NORMAL_ORDER = ['safar', 'fasting', 'prayers', 'weekly', 'extraTimes', 'today', 'kahf', 'special', 'nameOfDay', 'secondCity', 'prohibited', 'comingUp', 'sunnah'];
+export const RAMADAN_ORDER = ['safar', 'fasting', 'today', 'prayers', 'weekly', 'extraTimes', 'special', 'kahf', 'nameOfDay', 'comingUp', 'secondCity', 'prohibited', 'sunnah'];
 
 // Saved order + any cards added since (put where they sit by default).
 export function homeCardOrder(saved, ramadan = false) {
