@@ -298,9 +298,28 @@ export function PrimaryButton({ label, onPress, icon, style, disabled, ghost }) 
         style,
       ]}
     >
+      {!ghost && !disabled && th.fx ? <Shine /> : null}
       {icon ? <Feather name={icon} size={16} color={ghost ? th.ink : th.isLight ? th.cardInk : th.bg} /> : null}
       <Body size={14} weight="bold" color={ghost ? th.ink : th.isLight ? th.cardInk : th.bg}>{label}</Body>
     </Press>
+  );
+}
+// A soft light that sweeps across main buttons every few seconds.
+export function Shine({ radius = 99 }) {
+  const v = useRef(new Animated.Value(0)).current;
+  const [w, setW] = useState(300);
+  useEffect(() => {
+    const a = Animated.loop(Animated.sequence([
+      Animated.timing(v, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: Platform.OS !== 'web' }),
+      Animated.delay(2600),
+    ]));
+    a.start();
+    return () => a.stop();
+  }, []);
+  return (
+    <View pointerEvents="none" onLayout={(e) => setW(e.nativeEvent.layout.width)} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, borderRadius: radius, overflow: 'hidden' }}>
+      <Animated.View style={{ position: 'absolute', top: -10, bottom: -10, width: 46, backgroundColor: 'rgba(255,255,255,0.32)', transform: [{ translateX: v.interpolate({ inputRange: [0, 1], outputRange: [-80, w + 40] }) }, { rotate: '18deg' }] }} />
+    </View>
   );
 }
 
@@ -577,11 +596,34 @@ export function Input({ style, multiline, ...rest }) {
 }
 
 // Round tick used for prayers and checklists.
+// A tick that pops in with a soft ring when it's ticked (1.9).
 export function Tick({ done, size = 24, color }) {
   const th = useTheme();
+  return <PopMark done={done} size={size} color={color || th.ok} border={th.faint} fg={th.isLight ? '#fff' : th.bg} fx={th.fx} />;
+}
+export function PopMark({ done, size, color, border, fg, fx, icon = 'check', dashed, children, style }) {
+  const pop = useRef(new Animated.Value(done ? 1 : 0)).current;
+  const ping = useRef(new Animated.Value(1)).current;
+  const was = useRef(done);
+  useEffect(() => {
+    if (done && !was.current && fx) {
+      pop.setValue(0);
+      ping.setValue(0);
+      Animated.parallel([
+        Animated.spring(pop, { toValue: 1, speed: 14, bounciness: 14, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(ping, { toValue: 1, duration: 700, easing: Easing.out(Easing.quad), useNativeDriver: Platform.OS !== 'web' }),
+      ]).start();
+    } else pop.setValue(done ? 1 : 0);
+    was.current = done;
+  }, [done]);
   return (
-    <View style={[{ width: size, height: size, borderRadius: size / 2, borderWidth: 1.5, borderColor: th.faint, alignItems: 'center', justifyContent: 'center' }, done && { backgroundColor: color || th.ok, borderColor: color || th.ok }]}>
-      {done ? <Feather name="check" size={size * 0.6} color={th.isLight ? '#fff' : th.bg} /> : null}
+    <View style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style]}>
+      <Animated.View pointerEvents="none" style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderColor: color, opacity: ping.interpolate({ inputRange: [0, 1], outputRange: [0.7, 0] }), transform: [{ scale: ping.interpolate({ inputRange: [0, 1], outputRange: [1, 1.8] }) }] }} />
+      <View style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, borderWidth: 1.5, borderColor: border, borderStyle: dashed ? 'dashed' : 'solid' }} />
+      <Animated.View style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, backgroundColor: color, alignItems: 'center', justifyContent: 'center', opacity: pop.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 1, 1] }), transform: [{ scale: pop }] }}>
+        {icon ? <Feather name={icon} size={size * 0.6} color={fg} /> : null}
+      </Animated.View>
+      {children}
     </View>
   );
 }

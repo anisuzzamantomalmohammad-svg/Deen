@@ -1001,7 +1001,7 @@ export default function Sheets({ sheet, onClose }) {
       body = <PreviewSheet onClose={onClose} />;
       break;
     case 'whatsNew':
-      title = t("What's new in Deen {v}", { v: '1.8.0' });
+      title = t("What's new in Deen {v}", { v: '1.9.0' });
       body = <WhatsNewSheet onClose={onClose} />;
       break;
     case 'pause':

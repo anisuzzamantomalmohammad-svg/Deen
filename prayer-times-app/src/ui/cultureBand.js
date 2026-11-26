@@ -17,6 +17,10 @@ export const CULTURE_BANDS = {
   gulf: ['sadu', '#B3302A', '#F2E6CC', '#2A1A14'], // Al Sadu weaving
   lev: ['tatreez', '#B3263A', '#F2E6CC', '#2A1418'], // tatreez cross-stitch
   id: ['batik', '#8A5A2A', '#F2D8A8', '#3A2414'],
+  ir: ['iznik', '#1C8AA8', '#F2C230', '#0D3A52'], // Isfahan tiles
+  uz: ['zellige', '#1E8AB0', '#F2E6C8', '#2A1E14'], // Samarkand tilework
+  wa: ['kantha', '#E8C47A', '#5A2E14', '#2A1408'], // mudcloth
+  ps: ['tatreez', '#B3263A', '#F2E6CC', '#141A2A'], // tatreez
 };
 
 function Motif({ kind, a, b, x }) {

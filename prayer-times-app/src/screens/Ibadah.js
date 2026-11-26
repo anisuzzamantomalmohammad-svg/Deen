@@ -1,5 +1,9 @@
 import { nowDate } from '../lib/clock';
 import { firstTrackedDay } from '../lib/stats';
+import { TabTint, BigRing } from '../ui/rings';
+import { circleState, archState } from '../lib/homeLogic';
+import { useNow } from '../ui/hooks';
+import { shortDuration } from '../ui/hooks';
 import React, { useMemo, useState } from 'react';
 import { FlatList, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -11,7 +15,7 @@ import { useNav } from '../nav';
 import { useTheme, useT, Serif, Body, Label, Card, Press, Arabic, Segmented, Chip, Input, Tick, SectionLabel, Empty, Row, RingHead, PatternBand } from '../ui/kit';
 import { ScreenTitle } from '../ui/parts';
 import { useLayout, timeStr, shortDate, hijriLabel } from '../ui/hooks';
-import { addDays, addMinutes } from '../lib/prayer';
+import { addDays, addMinutes, PRAYER_NAMES } from '../lib/prayer';
 import { DUAS, DUA_CATEGORIES } from '../data/duas';
 import { duaText, categoryName } from '../data/duaText';
 import { KALIMAS } from '../data/kalimas';
@@ -40,6 +44,48 @@ function useNafilWindows() {
   const nightEnd = beforeFajr ? d.Fajr : getDay(addDays(today, 1)).Fajr;
   const lastThird = new Date(nightEnd.getTime() - (nightEnd - nightStart) / 3);
   return { tz, tahajjud: [lastThird, addMinutes(nightEnd, -(data.safetyBuffer || 0))], duha: [addMinutes(d.Sunrise, 15), addMinutes(d.Dhuhr, -10)], d };
+}
+
+
+// Today's five prayers as one ring, with the prayer that's on now (1.9).
+function TodayRing() {
+  const app = useApp();
+  const nav = useNav();
+  const th = useTheme();
+  const t = useT();
+  const now = useNow(30000);
+  const { today } = app;
+  const tz = app.coords.timezone;
+  const states = PRAYER_NAMES.map((n) => circleState(app, today, n, now));
+  const prayed = states.filter((s) => s === 'ontime' || s === 'late').length;
+  const a = archState(app, now);
+  const curIdx = a.mode === 'current' ? PRAYER_NAMES.indexOf(a.name) : -1;
+  const col = (s, i) => (s === 'ontime' ? th.ok : s === 'late' ? th.amber : s === 'missed' ? th.red : i === curIdx ? th.accent : th.line);
+  const segs = states.map((s, i) => [0.2, col(s, i), s === 'ontime' || i === curIdx, i === curIdx && s !== 'ontime' && s !== 'late']);
+  const d = app.getDay(today);
+  return (
+    <Card onPress={() => (a.name ? nav.openSheet('prayer', { name: a.name, date: a.day }) : null)} style={{ marginTop: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+      <BigRing size={100} w={8} round={false} segs={segs}>
+        <Serif size={21}>{`${t.num(prayed)}/${t.num(5)}`}</Serif>
+        <Label size={7}>{t('Prayed')}</Label>
+      </BigRing>
+      <View style={{ flex: 1 }}>
+        {a.mode === 'current' ? (
+          <>
+            <Label color={th.accent}>{`${t('Now')} · ${t(a.name)}`}</Label>
+            <Serif size={18} style={{ marginTop: 2 }}>{`${t('Ends in')} ${shortDuration(t, a.to - now)}`}</Serif>
+            {a.nextLine ? <Body size={11.5} color={th.muted}>{t('Next: {name} {time}', { name: t(a.nextLine.name), time: timeStr(t, a.nextLine.at, tz, true) })}</Body> : null}
+          </>
+        ) : (
+          <>
+            <Label color={th.accent}>{t('Next prayer')}</Label>
+            <Serif size={18} style={{ marginTop: 2 }}>{a.name ? `${t(a.name)} · ${timeStr(t, d[a.name] && a.day && a.day.getTime() === today.getTime() ? d[a.name] : a.to, tz, true)}` : t(a.title)}</Serif>
+            {a.to ? <Body size={11.5} color={th.muted}>{t('In {d}', { d: shortDuration(t, a.to - now) })}</Body> : null}
+          </>
+        )}
+      </View>
+    </Card>
+  );
 }
 
 function DailyView() {
@@ -71,6 +117,16 @@ function DailyView() {
 
   return (
     <View>
+      <TodayRing />
+      {!firstTrackedDay(app.data) ? (
+        <View style={{ marginTop: 10, padding: 12, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed', borderColor: th.accentLine, backgroundColor: th.accentSoft, flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+          <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: th.accent }} />
+          <View style={{ flex: 1 }}>
+            <Body size={13.5} weight="semi">{t('Start with one tick')}</Body>
+            <Body size={12} color={th.muted}>{t('How did today go? Tap to tick your prayers.')}</Body>
+          </View>
+        </View>
+      ) : null}
       <RingHead done={doneCount} total={items.length} title={t('Sunnah & nawafil')} sub={doneCount >= items.length ? t('All done today') : t('{n} more today', { n: items.length - doneCount })} style={{ marginTop: 16 }} />
       <Card style={{ paddingVertical: 2 }}>
         {items.map((it, i) => (
@@ -342,7 +398,7 @@ export default function IbadahScreen() {
 
   const header = (
     <View>
-      <PatternBand height={300 + L.insets.top} style={{ top: -(L.insets.top + 16), left: -L.pad, right: -L.pad }} />
+      <TabTint height={300 + L.insets.top} width={L.width} style={{ top: -(L.insets.top + 16), left: -L.pad, right: -L.pad }} />
       <ScreenTitle
         title={t('Ibadah')} arabic="عبادة" sub={t('Your daily worship')}
         right={(

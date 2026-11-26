@@ -85,18 +85,18 @@ export function PreviewBar() {
 }
 
 // "What's new": a few highlights, tap one to try it.
-export const WHATS_NEW_VERSION = '1.8.0';
+export const WHATS_NEW_VERSION = '1.9.0';
 export function WhatsNewSheet({ onClose }) {
   const app = useApp();
   const nav = useNav();
   const th = useTheme();
   const t = useT();
   const items = [
-    { icon: 'sunset', title: t('Fasting card with pictures'), body: t('Iftar foods by day, Seheri foods at night, from your own culture.'), go: () => nav.push('settingsPage', { page: 'look' }) },
-    { icon: 'home', title: t('The cream arch is back'), body: t('Smaller, so all five prayers fit on the first screen. Jumu’ah shows on Fridays.'), go: () => nav.push('settingsPage', { page: 'look' }) },
+    { icon: 'sun', title: t('A living Home'), body: t('Sky by the time of day, the real moon, clouds, your culture’s landmark, and a special look for Ramadan, Eid, Qadr, Arafah, Ashura and more.'), go: () => nav.push('settingsPage', { page: 'look' }) },
+    { icon: 'sunset', title: t('Fasting card with pictures'), body: t('Iftar foods by day, Seheri foods at night, from your own culture.'), go: () => nav.push('settingsPage', { page: 'fastcard' }) },
+    { icon: 'circle', title: t('Rings everywhere'), body: t('Today’s prayers, your month and your Quran reading as rings.'), go: () => nav.setTab('Ibadah') },
     { icon: 'bar-chart-2', title: t('Weekly report'), body: t('On Friday under your prayers, in two colours. Old weeks are in Essentials.'), go: () => nav.push('weeks') },
     { icon: 'calendar', title: t('Fasting page'), body: t('Easy to find in Essentials, with the next Sunnah fast to plan.'), go: () => nav.push('fasting') },
-    { icon: 'moon', title: t('Softer dark mode'), body: t('Dimmer text and a deeper background at night, widgets too.'), go: () => nav.push('settingsPage', { page: 'appearance' }) },
   ];
   const done = () => {
     app.update({ whatsNewSeen: WHATS_NEW_VERSION });

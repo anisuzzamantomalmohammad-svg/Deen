@@ -3,7 +3,7 @@
     "name": "Deen",
     "slug": "deen",
     "owner": "anisuzzaman_tamal",
-    "version": "1.8.0",
+    "version": "1.9.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -15,12 +15,13 @@
     },
     "android": {
       "package": "com.tomal.prayertimes",
-      "versionCode": 11,
+      "versionCode": 14,
       "icon": "./assets/icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "monochromeImage": "./assets/adaptive-monochrome.png",
-        "backgroundColor": "#0F2E2A"
+        "backgroundImage": "./assets/adaptive-background.png",
+        "backgroundColor": "#141B40"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
@@ -48,7 +49,7 @@
           "backgroundColor": "#F4ECDD",
           "dark": {
             "image": "./assets/splash-icon.png",
-            "backgroundColor": "#0F2E2A"
+            "backgroundColor": "#0E1430"
           }
         }
       ],

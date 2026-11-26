@@ -1,6 +1,7 @@
 // Settings: a short main list (each row shows its current value) that opens
 // one page per topic, plus a search box that finds any setting by name.
 import { nowDate } from '../lib/clock';
+import { TabTint, BigRing } from '../ui/rings';
 import React, { useMemo, useState } from 'react';
 import { Linking, Platform, ScrollView, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -10,7 +11,7 @@ import { Feather } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useApp } from '../state/store';
 import { useNav } from '../nav';
-import { useTheme, useT, Serif, Body, Card, Row, Toggle, Segmented, SectionLabel, Press, Arabic, Input, Divider, PrimaryButton, PatternBand } from '../ui/kit';
+import { useTheme, useT, Serif, Body, Card, Row, Toggle, Segmented, SectionLabel, Chip, Press, Arabic, Input, Divider, PrimaryButton, PatternBand } from '../ui/kit';
 import { ScreenTitle, archGeometry } from '../ui/parts';
 import { useLayout, hijriMonthName, timeStr } from '../ui/hooks';
 import { CALC_METHODS, computeDay, timeAdj, adjCityKey, addDays, addMinutes } from '../lib/prayer';
@@ -464,8 +465,9 @@ function LookPage() {
   return (
     <View>
       <Body size={12.5} color={th.muted} style={{ marginTop: 10 }}>{t('Change it here and Home changes too.')}</Body>
-      {group('Arch timer', [['inner', 'Inner light', 'A soft light runs along the inside of the arch'], ['line', 'Line', 'A thin line along the edge']], 'archTimer', 'inner')}
-      {group('Inside the arch', [['niche', 'Mihrab line', 'A dashed mihrab outline'], ['glow', 'Glow', 'A soft light at the top'], ['lattice', 'Light lattice', 'A faint diamond pattern'], ['plain', 'Plain', 'Just the arch']], 'archInside', 'niche')}
+      {group('Background', [['scene', 'Moving scene', 'Sky, sun or moon, clouds and your culture’s landmark'], ['pattern', 'Pattern', 'The plain pattern from before']], 'homeScene', 'scene')}
+      {group('Arch timer', [['inner', 'Inner light', 'A soft light runs along the inside of the arch'], ['line', 'Line', 'A thin line along the edge'], ['beads', 'Beads', '33 beads that light up, like a tasbih'], ['crown', 'Crown', '12 segments around the arch']], 'archTimer', 'inner')}
+      {group('Inside the arch', [['niche', 'Mihrab line', 'A dashed mihrab outline'], ['scene', 'Scene of the day', 'Palms by day, dunes at sunset, stars at night'], ['glow', 'Glow', 'A soft light at the top'], ['lattice', 'Light lattice', 'A faint diamond pattern'], ['plain', 'Plain', 'Just the arch']], 'archInside', 'niche')}
       {group('Culture band', [['on', 'Show it', 'A band of your culture’s pattern under the arch on normal days'], ['off', 'Off', 'Ramadan and Eid keep their own look either way']], 'cultureBand', 'on')}
       <FastCardSettings />
     </View>
@@ -496,7 +498,16 @@ function FastCardSettings() {
           </View>
         ))}
       </Card>
-      {mode === 'culture' ? (
+      <SectionLabel>{t('Culture')}</SectionLabel>
+      <Card style={{ padding: 10 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {[['one', 'Just one'], ['rotate', 'Change every day'], ['random', 'Random'], ['several', 'Pick a few'], ['none', 'Off']].map(([id, label]) => (
+            <Chip key={id} label={t(label)} active={(data.archCulture || 'one') === id} style={{ marginRight: 0 }} onPress={() => update({ archCulture: id })} />
+          ))}
+        </View>
+        <Body size={11.5} color={th.muted} style={{ marginTop: 8, lineHeight: 16 }}>{t('Sets the landmark, pattern band and foods on normal days. Eid and Ramadan keep their own look.')}</Body>
+      </Card>
+      {(data.archCulture || 'one') === 'one' ? (
         <Card style={{ paddingVertical: 2, marginTop: 10 }}>
           <Row first icon="globe" label={t('Culture')} value={t((CULTURES.find((c) => c[0] === cult) || CULTURES[0])[1])} onPress={() => setShowC(!showC)} />
           {showC ? CULTURES.map(([id, name]) => (
@@ -504,7 +515,49 @@ function FastCardSettings() {
           )) : null}
         </Card>
       ) : null}
+      {data.archCulture === 'several' ? (
+        <Card style={{ padding: 10, marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {CULTURES.filter((c) => c[0] !== 'auto').map(([id, name]) => {
+            const on = (data.cultureList || []).includes(id);
+            return <Chip key={id} label={t(name)} active={on} style={{ marginRight: 0 }} onPress={() => update({ cultureList: on ? (data.cultureList || []).filter((x) => x !== id) : [...(data.cultureList || []), id] })} />;
+          })}
+        </Card>
+      ) : null}
       <Body size={11.5} color={th.muted} style={{ marginTop: 8, lineHeight: 17 }}>{t('Iftar foods by day, Seheri foods at night. Ramadan, the last 10 nights, the White Days, Arafah and Ashura always have their own picture. Never shown on Eid.')}</Body>
+    </View>
+  );
+}
+
+
+// Settings › Seheri & Iftar (1.9): when the card shows, what's on it, and its pictures.
+function FastCardPage() {
+  const app = useApp();
+  const th = useTheme();
+  const t = useT();
+  const { data, update } = app;
+  const show = data.fastCardShow || 'fasting';
+  return (
+    <View>
+      <FastCardSettings />
+      <SectionLabel>{t('Show on Home')}</SectionLabel>
+      <Card style={{ paddingVertical: 2, overflow: 'hidden' }}>
+        {[['fasting', 'Only on days I fast', 'Ramadan, planned and Sunnah fasts'], ['always', 'Every day', 'Seheri and Iftar times all year'], ['off', 'Off', 'Hidden outside Ramadan']].map(([id, label, sub], i) => (
+          <View key={id}>
+            {i > 0 ? <View style={{ height: 1, backgroundColor: th.line, marginHorizontal: 14 }} /> : null}
+            <OptRow th={th} label={t(label)} sub={t(sub)} on={show === id} onPress={() => update({ fastCardShow: id })} />
+          </View>
+        ))}
+      </Card>
+      <Card active style={{ marginTop: 8, padding: 12, flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+        <Feather name="moon" size={15} color={th.accent} />
+        <Body size={12} style={{ flex: 1, lineHeight: 17 }}>{t('In Ramadan the card always shows. No fasting card on Eid days.')}</Body>
+      </Card>
+      <SectionLabel>{t('On the card')}</SectionLabel>
+      <Card style={{ paddingVertical: 2 }}>
+        <Row first label={t('Which fast it is')} sub={t('Like "Monday fast" or "Day 12 of 30"')} right={<Toggle value={data.fastCardLabel !== false} onChange={(v) => update({ fastCardLabel: v })} />} />
+        <Row label={t('Iftar dua button')} sub={t('Opens the dua for breaking the fast')} right={<Toggle value={data.fastCardDua !== false} onChange={(v) => update({ fastCardDua: v })} />} />
+        <Row label={t('Seheri ends alert')} sub={t('30 minutes before Seheri ends')} right={<Toggle value={data.fastingAlerts !== false} onChange={(v) => update({ fastingAlerts: v })} />} />
+      </Card>
     </View>
   );
 }
@@ -653,7 +706,7 @@ export function SettingsPageScreen({ page }) {
   const nav = useNav();
   const t = useT();
   const L = useLayout();
-  const Page = { jamaat: JamaatPage, widget: WidgetPage, adjust: AdjustPage, prayer: PrayerPage, calendar: CalendarPage, appearance: AppearancePage, language: LanguagePage, home: HomePage, backup: BackupPage, about: AboutPage, safar: SafarPage, look: LookPage }[page] || AboutPage;
+  const Page = { jamaat: JamaatPage, widget: WidgetPage, adjust: AdjustPage, prayer: PrayerPage, calendar: CalendarPage, appearance: AppearancePage, language: LanguagePage, home: HomePage, backup: BackupPage, about: AboutPage, safar: SafarPage, look: LookPage, fastcard: FastCardPage }[page] || AboutPage;
   return (
     <ScrollView contentContainerStyle={{ paddingTop: L.insets.top + 12, paddingHorizontal: L.pad, paddingBottom: L.insets.bottom + 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <ScreenTitle onBack={nav.pop} title={t(PAGE_TITLES[page] || 'Settings')} />
@@ -695,6 +748,7 @@ export const SETTINGS_INDEX = [
   ['Arabic text size', 'language', 'font'],
   ['Text size', 'language', 'font bigger'],
   ['Home screen', 'home', 'cards order hide ramadan'],
+  ['Seheri & Iftar', 'fastcard', 'fasting card show every day off dua alert'],
   ['Home look', 'look', 'arch timer mihrab lattice fasting card pictures food culture seheri iftar'],
   ['Safar (travelling)', 'safar', 'travel qasr musafir journey'],
   ['Export backup', 'backup', 'save drive'],
@@ -762,7 +816,7 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView contentContainerStyle={{ paddingTop: L.insets.top + 16, paddingHorizontal: L.pad, paddingBottom: L.bottomSpace }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-      <View><PatternBand height={240 + L.insets.top} style={{ top: -(L.insets.top + 16), left: -L.pad, right: -L.pad }} /></View>
+      <View><TabTint height={300 + L.insets.top} width={L.width} style={{ top: -(L.insets.top + 16), left: -L.pad, right: -L.pad }} /></View>
       <ScreenTitle title={t('Settings')} right={<AccountCorner />} />
       <View style={{ marginTop: 8 }}>
         <Input value={q} onChangeText={setQ} placeholder={t('Search settings')} autoCorrect={false} returnKeyType="search" style={{ paddingRight: 40 }} />
@@ -799,13 +853,14 @@ export default function SettingsScreen() {
             <Row icon="clock" label={t('Prayer times')} value={`${method.id === 'Karachi' ? 'Karachi' : t(method.label)} · ${data.asrMethod === 'Hanafi' ? t('Hanafi') : t('Standard')}${adjCount(data) ? ` · ${t('adjusted')}` : ''}`} onPress={() => go('prayer')} />
             <Row icon="bell" label={t('Alerts')} value={alertsSub} onPress={() => go('alerts')} />
             <Row icon="moon" label={t('Calendar & dates')} value={data.hijriMode === 'ummalqura' ? t('Umm al-Qura') : t('Moon sighting')} onPress={() => go('calendar')} />
+            <Row icon="sunset" label={t('Seheri & Iftar')} value={{ fasting: t('Fasting days'), always: t('Every day'), off: t('Off') }[data.fastCardShow || 'fasting']} onPress={() => go('fastcard')} />
             <Row icon="navigation" label={t('Safar (travelling)')} value={data.travelConfirmed ? t('On') : data.safarAsk === 'off' ? t('Off') : t('Ask me')} onPress={() => go('safar')} />
           </Card>
           <SectionLabel>{t('Look')}</SectionLabel>
           <Card style={{ paddingVertical: 2 }}>
             <Row first icon="droplet" label={t('Appearance')} value={`${modeName} · ${colourName}`} onPress={() => go('appearance')} />
             <Row icon="type" label={t('Language & text')} value={data.lang === 'bn' ? 'বাংলা' : 'English'} onPress={() => go('language')} />
-            <Row icon="sunset" label={t('Home look')} value={`${data.archTimer === 'line' ? t('Line') : t('Inner light')} · ${{ culture: t('Culture'), turns: t('Take turns'), simple: t('Dates & water') }[data.fastPics || 'culture']}`} onPress={() => go('look')} />
+            <Row icon="sunset" label={t('Home look')} value={`${{ line: t('Line'), beads: t('Beads'), crown: t('Crown') }[data.archTimer] || t('Inner light')} · ${{ culture: t('Culture'), turns: t('Take turns'), simple: t('Dates & water') }[data.fastPics || 'culture']}`} onPress={() => go('look')} />
             <Row icon="layout" label={t('Home screen')} value={t('{n} cards', { n: homeCardOrder(data.homeCards).filter((c) => !c.hidden).length })} onPress={() => go('home')} />
             {Platform.OS === 'android' ? <Row icon="smartphone" label={t('Add widget')} value={t.num(3)} onPress={() => go('widget')} /> : null}
           </Card>

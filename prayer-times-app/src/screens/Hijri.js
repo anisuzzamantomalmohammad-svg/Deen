@@ -1,5 +1,6 @@
 import { isPausedDay } from '../lib/qada';
 import { nowDate } from '../lib/clock';
+import { TabTint, BigRing } from '../ui/rings';
 import React, { useMemo, useRef, useState } from 'react';
 import { Animated, Easing, PanResponder, Platform, ScrollView, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -14,10 +15,38 @@ import { rangeStats, streaks, hijriMonthRange } from '../lib/stats';
 import { dayMark, statusOf, qadaHistory } from '../lib/qada';
 import { fastingDayInfo } from '../lib/alerts';
 import { DayTile, BIG_DAYS, MoonBadge, OccStar, FAST_COLORS, OCC_COLOR, rgba } from '../ui/dayTile';
-import Svg, { Rect } from 'react-native-svg';
+import Svg, { Rect, Circle, G, Path } from 'react-native-svg';
+import { moonPhasePath } from '../ui/parts';
 import { daysAwayText } from './Home';
 import { swipeLock } from '../ui/swipe';
 import { nightStar } from '../lib/sky';
+
+
+// The month's moons in a row: each day of the Hijri month, today ringed.
+function MoonRow({ hm, range, today, app, th, width }) {
+  const n = range.days;
+  const step = Math.min(10, (width - 6) / n);
+  const r = Math.min(4.8, step * 0.42);
+  const sz = r * 2 + 1;
+  const tIdx = today >= range.start ? Math.round((new Date(today.toDateString()) - new Date(range.start.toDateString())) / 86400000) : -1;
+  const south = app.coords.latitude < 0;
+  return (
+    <Svg width={width} height={24} style={{ marginTop: 8 }}>
+      {Array.from({ length: n }, (_, k) => {
+        const x = 3 + k * step + step / 2;
+        const today0 = k === tIdx;
+        const flip = south ? `translate(${x + sz / 2} ${12 - sz / 2}) scale(-1 1)` : `translate(${x - sz / 2} ${12 - sz / 2})`;
+        return (
+          <G key={k}>
+            <Circle cx={x} cy={12} r={r} fill={th.ink} opacity={0.12} />
+            <G transform={flip}><Path d={moonPhasePath(app.hijri(addDays(range.start, k)).day, sz)} fill={today0 ? th.accent : th.ink} opacity={today0 ? 1 : 0.7} /></G>
+            {today0 ? <Circle cx={x} cy={12} r={r + 3} fill="none" stroke={th.accent} strokeWidth={1.2} /> : null}
+          </G>
+        );
+      })}
+    </Svg>
+  );
+}
 
 // Everything one calendar day needs, worked out once.
 function dayInfo({ date, h, today, app, ctx, qadaCount, regular, t }) {
@@ -187,7 +216,7 @@ export default function HijriScreen() {
 
   return (
     <ScrollView contentContainerStyle={{ paddingTop: L.insets.top + 16, paddingHorizontal: L.pad, paddingBottom: L.bottomSpace }} showsVerticalScrollIndicator={false}>
-      <View><PatternBand height={240 + L.insets.top} style={{ top: -(L.insets.top + 16), left: -L.pad, right: -L.pad }} /></View>
+      <View><TabTint height={300 + L.insets.top} width={L.width} style={{ top: -(L.insets.top + 16), left: -L.pad, right: -L.pad }} /></View>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Press
           style={{ flex: 1 }}
@@ -217,6 +246,7 @@ export default function HijriScreen() {
           <Feather name="repeat" size={11} color={th.accent} />
         </Press>
       </View>
+      <MoonRow hm={hm} range={range} today={today} app={app} th={th} width={L.width - 2 * L.pad} />
       {!isThisMonth ? (
         <Press onPress={() => setCursor(today)} style={{ alignSelf: 'flex-start', marginTop: 6 }}>
           <Body size={12} weight="semi" color={th.accent}>{t('Back to today')}</Body>
@@ -260,23 +290,41 @@ export default function HijriScreen() {
               <Body size={11} weight="semi" color={th.accent}>{`${t('Month stats')} ›`}</Body>
             </Press>
           </View>
-          <Press onPress={() => nav.push('monthStats', { date: range.start })} scaleTo={0.99} accessibilityLabel={t('Month stats')}>
-            <View style={{ flexDirection: 'row', borderWidth: 1, borderColor: th.line, borderRadius: 16 }}>
-              {[
-                [t.num(stats.onTime), t('On time'), th.ok],
-                [t.num(stats.qada), t('Late'), th.amber],
-                [t.num(stats.missed), t('Missed'), stats.missed ? th.red : th.ink],
-                [t.num(st.current), t('Streak'), th.ink],
-              ].map(([v, k, c], i) => (
-                <View key={i} style={[{ flex: 1, alignItems: 'center', paddingVertical: 11, paddingHorizontal: 4 }, i > 0 && { borderLeftWidth: 1, borderColor: th.line }]}>
-                  <Serif size={20} maxScale={1.12} color={c} numberOfLines={1}>{v}</Serif>
-                  <Label size={8} maxScale={1.12} numberOfLines={1} style={{ marginTop: 2, textAlign: 'center' }}>{k}</Label>
+          <Card onPress={() => nav.push('monthStats', { date: range.start })} style={{ padding: 12, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <BigRing size={96} w={8} segs={[[stats.onTime / stats.due, th.ok, true], [stats.qada / stats.due, th.amber], [stats.missed / stats.due, th.red]].filter((s) => s[0] > 0)}>
+              <Serif size={19}>{`${t.num(Math.round((stats.onTime / stats.due) * 100))}%`}</Serif>
+              <Label size={7}>{t('On time')}</Label>
+            </BigRing>
+            <View style={{ flex: 1 }}>
+              {[[stats.onTime, t('on time'), th.ok], [stats.qada, t('late'), th.amber], [stats.missed, t('missed'), th.red]].map(([n, l, c]) => (
+                <View key={l} style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginVertical: 2 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c }} />
+                  <Serif size={15}>{t.num(n)}</Serif>
+                  <Body size={12} color={th.muted}>{l}</Body>
                 </View>
               ))}
+              <View style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderColor: th.line, flexDirection: 'row', gap: 4 }}>
+                <Body size={11.5} color={th.muted}>{t('Streak')}</Body>
+                <Body size={11.5} weight="bold" color={th.accent}>{t('{n} days', { n: t.num(st.current) })}</Body>
+                <Body size={11.5} color={th.muted}>{` · ${t('best {n}', { n: t.num(st.best) })}`}</Body>
+              </View>
             </View>
-          </Press>
-          <Body size={10.5} color={th.faint} style={{ marginTop: 6, textAlign: 'center' }}>{t('Streak: days in a row with all 5 on time · best {n}', { n: st.best })}</Body>
+            <Feather name="chevron-right" size={16} color={th.faint} />
+          </Card>
         </>
+      ) : null}
+
+      {!(stats && stats.tracking && stats.due) && isThisMonth ? (
+        <Card style={{ marginTop: 22, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          <BigRing size={84} w={7} segs={[[0.001, th.accent]]}>
+            <Serif size={17}>{`${t.num(0)}%`}</Serif>
+            <Label size={7}>{t('On time')}</Label>
+          </BigRing>
+          <View style={{ flex: 1 }}>
+            <Body size={14} weight="semi">{t('Nothing yet')}</Body>
+            <Body size={12} color={th.muted} style={{ marginTop: 2, lineHeight: 17 }}>{t('Nothing logged yet. Tick prayers on the Prayers tab or on any calendar date, and your progress shows up here.')}</Body>
+          </View>
+        </Card>
       ) : null}
 
       {/* Upcoming */}

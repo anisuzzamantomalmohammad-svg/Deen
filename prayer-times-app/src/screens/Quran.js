@@ -3,6 +3,7 @@
 // "Read up to here" (nothing is tracked by itself). Keeps saved ayahs and
 // notes (in the backup and sync), and shares an ayah as a picture. In
 // Ramadan, the para list ticks into the Ramadan tracker.
+import { BigRing } from '../ui/rings';
 import React, { useMemo, useRef, useState } from 'react';
 import { FlatList, ScrollView, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -104,16 +105,16 @@ export function QuranBody() {
         <Label size={8.5} color={th.accent}>{t('Your progress')}</Label>
         {pr ? (
           <>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 2 }}>
-              <Serif size={30}>{`${t.num(pct)}%`}</Serif>
-              <Body size={12} color={th.muted}>{t('of the Quran')}</Body>
-            </View>
-            <View style={{ height: 6, borderRadius: 3, backgroundColor: th.line, marginTop: 8, overflow: 'hidden' }}>
-              <View style={{ width: `${Math.max(1, (pos / TOTAL_AYAHS) * 100)}%`, height: 6, backgroundColor: th.accent }} />
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-              <Body size={11.5} color={th.muted}>{t('Up to {name} {s}:{a} · Part {j}', { name: SURAHS[pr.s - 1][2], s: t.num(pr.s), a: t.num(pr.a), j: t.num(juzOf(pr.s, pr.a)) })}</Body>
-              <Body size={11.5} color={th.muted}>{`${t.num(pos.toLocaleString('en-US'))} / ${t.num(TOTAL_AYAHS.toLocaleString('en-US'))}`}</Body>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 8 }}>
+              <BigRing size={110} w={9} ticks={30} segs={[[Math.max(0.005, pos / TOTAL_AYAHS), th.accent, true]]}>
+                <Serif size={23}>{`${t.num(pct)}%`}</Serif>
+                <Label size={7}>{t('of the Quran')}</Label>
+              </BigRing>
+              <View style={{ flex: 1 }}>
+                <Body size={14} weight="semi">{t('Up to {name} {s}:{a}', { name: SURAHS[pr.s - 1][2], s: t.num(pr.s), a: t.num(pr.a) })}</Body>
+                <Body size={12} color={th.muted} style={{ marginTop: 2 }}>{t('Part {j} of 30', { j: t.num(juzOf(pr.s, pr.a)) })}</Body>
+                <Body size={12} color={th.muted} style={{ marginTop: 6 }}>{`${t.num(pos.toLocaleString('en-US'))} / ${t.num(TOTAL_AYAHS.toLocaleString('en-US'))} ${t('verses')}`}</Body>
+              </View>
             </View>
             <View style={{ flexDirection: 'row', gap: 3, marginTop: 12 }}>
               {JUZ_START.map((_, k) => {
@@ -150,9 +151,18 @@ export function QuranBody() {
           </>
         ) : (
           <>
-            <Serif size={22} style={{ marginTop: 4 }}>{t('Start from Al-Fatihah')}</Serif>
-            <Body size={12.5} color={th.muted} style={{ marginTop: 4, lineHeight: 18 }}>{t('Tap a verse where you stop, then “Read up to here”. Your progress shows here.')}</Body>
-            <PrimaryButton style={{ marginTop: 12 }} icon="book-open" label={t('Start reading')} onPress={() => nav.push('quran', { surah: 1 })} />
+            <View style={{ alignItems: 'center', marginTop: 8 }}>
+              <BigRing size={110} w={9} ticks={30} segs={[[0.001, th.accent]]}>
+                <Arabic size={19} color={th.accent} style={{ lineHeight: 30 }}>الفاتحة</Arabic>
+                <Label size={7}>{t('Page 1')}</Label>
+              </BigRing>
+              <Serif size={20} style={{ marginTop: 10 }}>{t('Begin your reading')}</Serif>
+              <Body size={12.5} color={th.muted} style={{ marginTop: 4, lineHeight: 18, textAlign: 'center' }}>{t('Tap a verse where you stop, then “Read up to here”. Your progress shows here.')}</Body>
+            </View>
+            <PrimaryButton style={{ marginTop: 12 }} icon="book-open" label={t('Start from Al-Fatihah')} onPress={() => nav.push('quran', { surah: 1 })} />
+            <Press onPress={() => nav.push('surahs')} style={{ alignSelf: 'center', marginTop: 10 }}>
+              <Body size={12.5} weight="semi" color={th.accent}>{t('Already reading? Pick where you are')}</Body>
+            </Press>
           </>
         )}
       </Card>

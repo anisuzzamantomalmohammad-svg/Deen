@@ -1,5 +1,6 @@
 // Essentials: the Qibla on top, then the everyday tools that used to sit in
 // Settings, the tasbih and the Learn section.
+import { TabTint, BigRing } from '../ui/rings';
 import React from 'react';
 import { ScrollView, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -52,18 +53,17 @@ export default function EssentialsScreen() {
   ];
   return (
     <ScrollView contentContainerStyle={{ paddingTop: L.insets.top + 16, paddingHorizontal: L.pad, paddingBottom: L.bottomSpace }} showsVerticalScrollIndicator={false}>
-      <View><PatternBand height={240 + L.insets.top} style={{ top: -(L.insets.top + 16), left: -L.pad, right: -L.pad }} /></View>
+      <View><TabTint height={300 + L.insets.top} width={L.width} style={{ top: -(L.insets.top + 16), left: -L.pad, right: -L.pad }} /></View>
       <ScreenTitle title={t('Essentials')} />
 
       {/* Qibla */}
       <Card active onPress={() => nav.push('qibla')} style={{ marginTop: 8, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-        <View style={{ width: 58, height: 58, borderRadius: 29, borderWidth: 1.5, borderColor: th.accent, alignItems: 'center', justifyContent: 'center' }}>
-          <Body size={7} color={th.faint} style={{ position: 'absolute', top: 2 }}>N</Body>
-          <View style={{ width: 58, height: 58, alignItems: 'center', transform: [{ rotate: `${qibla}deg` }] }}>
-            <View style={{ width: 2.5, height: 22, marginTop: 7, borderRadius: 1.5, backgroundColor: th.accent }} />
+        <BigRing size={62} w={4} segs={[[0.93, th.accent, true]]}>
+          <View style={{ width: 40, height: 40, alignItems: 'center', transform: [{ rotate: `${qibla}deg` }] }}>
+            <View style={{ width: 2.5, height: 17, marginTop: 3, borderRadius: 1.5, backgroundColor: th.accent }} />
           </View>
-          <View style={{ position: 'absolute', width: 7, height: 7, borderRadius: 3.5, backgroundColor: th.accent }} />
-        </View>
+          <View style={{ position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: th.accent }} />
+        </BigRing>
         <View style={{ flex: 1 }}>
           <Serif size={18}>{t('Qibla {deg}° · {dir}', { deg: t.num(Math.round(qibla)), dir: t(compassPoint(qibla)) })}</Serif>
           <Body size={12} color={th.muted} style={{ marginTop: 2 }}>{t('Tap to open the compass · {n} km to the Kaaba', { n: t.num(km.toLocaleString('en-US')) })}</Body>

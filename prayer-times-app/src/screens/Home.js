@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import { Feather } from '@expo/vector-icons';
 import { useApp } from '../state/store';
 import { useNav } from '../nav';
-import { useTheme, useT, Serif, Body, Label, Arabic, Press, Card, PatternBand, Divider, Tick, NotConfirmed } from '../ui/kit';
+import { useTheme, useT, Serif, Body, Label, Arabic, Press, Card, PatternBand, Divider, Tick, NotConfirmed, PopMark } from '../ui/kit';
 import { skyFor, isFastingDay } from '../lib/sky';
 import { Arch, SunArc, MoonPhase } from '../ui/parts';
 import { useNow, useLayout, longDate, hijriLabel, countdownText, mmss, timeStr, shortDuration, shortDate, HIJRI_MONTHS_AR, hijriMonthName } from '../ui/hooks';
@@ -28,6 +28,7 @@ import { RamadanSummaryCard, notFastingPatch, fastingPatch, isMissedFast } from 
 import { FastCard, NotFastingStrip } from '../ui/fastCard';
 import { pickFastPic, cultureOf } from '../lib/fastPics';
 import { CultureBand } from '../ui/cultureBand';
+import { HomeScene } from '../ui/homeScene';
 
 export function fastingWindow(app, now) {
   const { today, getDay, data } = app;
@@ -82,6 +83,29 @@ export default function HomeScreen() {
   const boundary = useMemo(() => nextMonthBoundary(today, app.cal), [today, app.cal]);
   const showMoon = data.moonCheck !== false && boundary && boundary.evening.getTime() === today.getTime();
 
+  // The scene behind the header: time of day and the occasion.
+  const dToday = app.getDay(today);
+  const sceneKind = now >= addMinutes(dToday.Maghrib, -45) && now < addMinutes(dToday.Maghrib, 30) ? 'sunset' : now >= dToday.Sunrise && now < dToday.Maghrib ? 'day' : 'night';
+  const eidDay = (h.monthIndex === 9 && h.day <= 3) || (h.monthIndex === 11 && h.day >= 10 && h.day <= 13);
+  const hs = hNow;
+  const nightNow = sceneKind === 'night';
+  const lastRamadanEve = h.monthIndex === 8 && app.afterMaghrib && hs.monthIndex === 9;
+  const sceneOcc = eidDay ? 'eid'
+    : lastRamadanEve || (showMoon && app.afterMaghrib && boundary && boundary.monthIndex === 9) ? 'chandraat'
+      : h.monthIndex === 8 && hs.monthIndex === 8 && hs.day >= 21 && nightNow ? 'qadr'
+        : look === 'ramadan' ? 'ramadan'
+          : hs.monthIndex === 7 && hs.day === 15 && nightNow ? 'shabebarat'
+            : h.monthIndex === 11 && h.day === 9 ? 'arafah'
+              : h.monthIndex === 11 && h.day <= 8 ? 'dhulhijjah'
+                : h.monthIndex === 0 && h.day === 1 ? 'newyear'
+                  : h.monthIndex === 0 && (h.day === 9 || h.day === 10) ? 'ashura'
+                    : showMoon ? 'moon'
+                      : look === 'fullmoon' && nightNow ? 'fullmoon'
+                        : data.travelConfirmed ? 'travel'
+                          : today.getDay() === 5 && !nightNow ? 'friday' : null;
+  const skyNow = skyFor({ now, today, getDay: app.getDay, hijri: app.hijri, data, latitude: app.coords.latitude });
+  const sceneSky = { ...skyNow, rays: false };
+
   const order = homeCardOrder(ramadan ? data.ramadanOrder : data.homeCards, ramadan).filter((c) => !c.hidden).map((c) => c.id);
 
   const renderCard = (id) => {
@@ -106,7 +130,11 @@ export default function HomeScreen() {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={{ paddingBottom: L.bottomSpace }} showsVerticalScrollIndicator={false}>
-        <PatternBand height={archH + 260 + L.insets.top + (ramadan || look === 'kaaba' ? 30 : 0)} variant={look} />
+        {data.homeScene === 'pattern' ? (
+          <PatternBand height={archH + 260 + L.insets.top + (ramadan || look === 'kaaba' ? 30 : 0)} variant={look} />
+        ) : (
+          <HomeScene width={L.width} height={archH + 230 + L.insets.top} kind={sceneKind} occasion={sceneOcc} sky={sceneSky} culture={data.cultureBand === 'off' || data.archCulture === 'none' ? null : cultureOf(app)} />
+        )}
         <View style={{ paddingTop: L.insets.top + 14, paddingHorizontal: L.pad, alignItems: 'center' }}>
           {/* Location, date, Hijri date */}
           <Press onPress={() => nav.openSheet('location')} hitSlop={8} accessibilityLabel={t('Change location')} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -126,10 +154,10 @@ export default function HomeScreen() {
 
           {/* The arch */}
           <View style={{ marginTop: 18 }}>
-            <ArchBlock now={now} width={archW} height={archH} />
+            <ArchBlock now={now} width={archW} height={archH} scene={sceneKind} occasion={sceneOcc} culture={data.archCulture === 'none' || sceneOcc === 'eid' ? null : cultureOf(app)} />
           </View>
           {/* A band of the user's culture's pattern on normal days (not on Ramadan, Eid or other special looks) */}
-          {!look && data.cultureBand !== 'off' ? (
+          {!look && data.cultureBand !== 'off' && data.archCulture !== 'none' ? (
             <View style={{ marginTop: 10, marginHorizontal: -L.pad }}>
               <CultureBand culture={cultureOf(app)} width={L.width} />
             </View>
@@ -144,6 +172,22 @@ export default function HomeScreen() {
         </View>
 
         <View style={{ paddingHorizontal: L.pad, marginTop: 16 }}>
+          {app.isAuto && !app.gps.coords && !data.lastAuto && !app.gps.loading ? (
+            <Card active style={{ marginTop: 4, padding: 16, alignItems: 'center' }}>
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: th.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="map-pin" size={20} color={th.accent} />
+              </View>
+              <Serif size={20} style={{ marginTop: 8 }}>{t('Where are you?')}</Serif>
+              <Body size={12.5} color={th.muted} style={{ marginTop: 2, textAlign: 'center' }}>{t('Prayer times come from your location. Until then these are for Wellington.')}</Body>
+              <Press onPress={() => app.fetchGps && app.fetchGps()} style={{ marginTop: 12, alignSelf: 'stretch', paddingVertical: 12, borderRadius: 14, backgroundColor: th.accent, alignItems: 'center' }}>
+                <Body size={13.5} weight="bold" color={th.isLight ? '#fff' : '#1a1408'}>{t('Use my location')}</Body>
+              </Press>
+              <Press onPress={() => nav.openSheet('location')} style={{ marginTop: 8, alignSelf: 'stretch', paddingVertical: 11, borderRadius: 14, borderWidth: 1, borderColor: th.line, alignItems: 'center' }}>
+                <Body size={13.5} weight="semi" color={th.accent}>{t('Pick a city')}</Body>
+              </Press>
+              <Body size={11} color={th.faint} style={{ marginTop: 10 }}>{t('Your location stays on this phone.')}</Body>
+            </Card>
+          ) : null}
           <Notice now={now} />
           <PauseBanner />
           <NeedsAnswerCard now={now} />
@@ -196,7 +240,7 @@ function isLastRamadanDay(app, date) {
 /* -------------------------------- Arch -------------------------------- */
 // The arch on Home. ArchFace is drawn inside the arch so it picks up the
 // arch's own colours (dark ink on the cream arch).
-function ArchBlock({ now, width, height }) {
+function ArchBlock({ now, width, height, scene, occasion, culture }) {
   const app = useApp();
   const nav = useNav();
   const a = archState(app, now);
@@ -206,7 +250,7 @@ function ArchBlock({ now, width, height }) {
     else nav.push('fasting', { tab: 'today' });
   };
   return (
-    <Arch width={width} height={height} progress={Math.max(0, Math.min(1, a.progress || 0))} cycleKey={`${a.mode}${a.name || ''}${a.to ? a.to.getTime() : ''}`} onPress={onPress} sky={sky} timer={app.data.archTimer || 'inner'} inside={app.data.archInside || 'niche'}>
+    <Arch width={width} height={height} progress={Math.max(0, Math.min(1, a.progress || 0))} cycleKey={`${a.mode}${a.name || ''}${a.to ? a.to.getTime() : ''}`} onPress={onPress} sky={sky} timer={app.data.archTimer || 'inner'} inside={app.data.archInside || 'niche'} scene={scene} occasion={occasion} culture={culture}>
       <ArchFace now={now} width={width} />
     </Arch>
   );
@@ -310,6 +354,7 @@ export function CircleMark({ state, size = 20, two }) {
     late: { bg: th.amber, border: th.amber, icon: 'rotate-ccw', fg: '#2a1a05' },
     missed: { bg: th.red, border: th.red, icon: 'x', fg: '#fff' },
   }[state] || { border: th.faint };
+  if (map.bg) return <PopMark done size={size} color={map.bg} border={map.border} fg={map.fg} fx={th.fx} icon={map.icon} />;
   return (
     <View style={[{ width: size, height: size, borderRadius: size / 2, borderWidth: 1.5, borderColor: map.border, borderStyle: map.dashed ? 'dashed' : 'solid', alignItems: 'center', justifyContent: 'center', opacity: map.op || 1 }, map.bg && { backgroundColor: map.bg }]}>
       {map.icon ? <Feather name={map.icon} size={size * 0.58} color={map.fg} /> : null}
@@ -626,8 +671,19 @@ function FastingBand({ fw, now }) {
   const tz = app.coords.timezone;
   const fastDate = fw.night ? new Date(fw.to.getFullYear(), fw.to.getMonth(), fw.to.getDate()) : app.today;
   const fasting = fw.night ? isFastDate(app, fastDate) : app.fastingToday;
-  const pic = useMemo(() => (fasting ? pickFastPic(app, fastDate, fw.night) : null), [fasting, fw.night, fastDate.toDateString(), app.data.fastPics, app.data.culture, app.data.lang]);
-  if (fasting) {
+  const show = app.data.fastCardShow || 'fasting';
+  const hd = app.hijri(fastDate);
+  const ramadanDay = hd.monthIndex === 8;
+  const eidNow = (app.hijri(app.today).monthIndex === 9 && app.hijri(app.today).day === 1) || (app.hijri(app.today).monthIndex === 11 && app.hijri(app.today).day >= 10 && app.hijri(app.today).day <= 13);
+  const pic = useMemo(() => pickFastPic(app, fastDate, fw.night), [fw.night, fastDate.toDateString(), app.data.fastPics, app.data.culture, app.data.lang, app.data.archCulture]);
+  if (eidNow && !fw.night) return null;
+  if (show === 'off' && !ramadanDay) return null;
+  if (fasting || show === 'always') {
+    const info = fastingDayInfo(fastDate, app.cal);
+    const which = !fasting ? t('Not fasting today')
+      : ramadanDay ? t('Ramadan day {n} of 30', { n: t.num(hd.day) })
+        : info && info.type === 'sunnah' ? t(SUNNAH_NAME[info.reason] ? SUNNAH_NAME[info.reason].replace(' is a Sunnah fast', ' fast') : 'Sunnah fast')
+          : t('Planned fast');
     return (
       <FastCard
         pic={pic}
@@ -635,6 +691,8 @@ function FastingBand({ fw, now }) {
         countdown={shortDuration(t, fw.to - now)}
         at={timeStr(t, fw.to, tz, true)}
         progress={fw.progress}
+        sub={app.data.fastCardLabel !== false ? which : null}
+        action={fasting && !fw.night && app.data.fastCardDua !== false && fw.to - now < 60 * 60000 ? { label: t('Iftar dua'), onPress: () => nav.push('dua', { id: 2 }) } : null}
         onPress={() => nav.push('fasting', { tab: 'today' })}
       />
     );

@@ -153,6 +153,12 @@ export const DEFAULTS = {
   fastPics: 'culture',
   culture: 'auto',
   cultureBand: 'on',
+  homeScene: 'scene',
+  fastCardShow: 'fasting',
+  fastCardLabel: true,
+  fastCardDua: true,
+  archCulture: 'one',
+  cultureList: [],
   all5Shown: null, // the day the "All 5 prayed" moment was last shown
   timeAdj: {}, // minutes per prayer, this phone only
   adjPerCity: false,

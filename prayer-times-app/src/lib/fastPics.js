@@ -10,14 +10,27 @@ import { IFTAR_PICS, OCCASION_PICS, SEHERI_PICS } from '../data/fastPics';
 const TZ_CULTURE = {
   'Asia/Dhaka': 'bd', 'Asia/Karachi': 'pak', 'Asia/Kolkata': 'in', 'Asia/Calcutta': 'in', 'Europe/Istanbul': 'tr', 'Africa/Cairo': 'eg', 'Africa/Casablanca': 'ma',
   'Asia/Riyadh': 'gulf', 'Asia/Dubai': 'gulf', 'Asia/Qatar': 'gulf', 'Asia/Kuwait': 'gulf', 'Asia/Bahrain': 'gulf', 'Asia/Muscat': 'gulf',
-  'Asia/Amman': 'lev', 'Asia/Beirut': 'lev', 'Asia/Damascus': 'lev', 'Asia/Gaza': 'lev', 'Asia/Hebron': 'lev', 'Asia/Jerusalem': 'lev',
+  'Asia/Amman': 'lev', 'Asia/Beirut': 'lev', 'Asia/Damascus': 'lev', 'Asia/Gaza': 'ps', 'Asia/Hebron': 'ps', 'Asia/Jerusalem': 'lev',
+  'Asia/Tehran': 'ir', 'Asia/Tashkent': 'uz', 'Asia/Samarkand': 'uz', 'Africa/Lagos': 'wa', 'Africa/Dakar': 'wa', 'Africa/Abidjan': 'wa', 'Africa/Accra': 'wa', 'Africa/Bamako': 'wa', 'Africa/Niamey': 'wa', 'Africa/Conakry': 'wa',
   'Asia/Jakarta': 'id', 'Asia/Kuala_Lumpur': 'id', 'Asia/Singapore': 'id', 'Asia/Brunei': 'id', 'Asia/Makassar': 'id',
 };
 export const CULTURES = [
-  ['auto', 'Automatic'], ['bd', 'Bangladesh'], ['pak', 'Pakistan'], ['in', 'India'], ['tr', 'Turkey'], ['eg', 'Egypt'], ['ma', 'Morocco'], ['gulf', 'Gulf'], ['lev', 'Levant'], ['id', 'Indonesia & Malaysia'],
+  ['auto', 'Automatic'], ['bd', 'Bangladesh'], ['pak', 'Pakistan'], ['in', 'India'], ['tr', 'Turkey'], ['eg', 'Egypt'], ['ma', 'Morocco'], ['gulf', 'Gulf'], ['lev', 'Levant'], ['id', 'Indonesia & Malaysia'], ['ir', 'Iran'], ['uz', 'Uzbekistan'], ['wa', 'West Africa'], ['ps', 'Palestine'],
 ];
 
-export function cultureOf(app) {
+const ALL_C = ['bd', 'pak', 'in', 'tr', 'eg', 'ma', 'gulf', 'lev', 'id', 'ir', 'uz', 'wa', 'ps'];
+// Settings › Home look › Culture: one, change every day, random, a few, or none.
+export function cultureOf(app, date) {
+  const mode = app.data.archCulture || 'one';
+  const d = date || app.today || new Date();
+  const n = dayNo(d);
+  if (mode === 'none') return 'all';
+  if (mode === 'rotate') return ALL_C[n % ALL_C.length];
+  if (mode === 'random') return ALL_C[(n * 7919 + 13) % 97 % ALL_C.length];
+  if (mode === 'several') {
+    const list = (app.data.cultureList || []).filter((x) => ALL_C.includes(x));
+    if (list.length) return list[n % list.length];
+  }
   const c = app.data.culture;
   if (c && c !== 'auto') return c;
   if (app.data.lang === 'bn') return 'bd';
@@ -46,8 +59,9 @@ export function pickFastPic(app, date, night, mode = app.data.fastPics || 'cultu
   let pool = list;
   if (mode !== 'turns') {
     const c = cultureOf(app);
-    const mine = list.filter((p) => p.c.split(' ').includes(c));
-    pool = mine.length >= 3 ? mine : list.filter((p) => p.c.split(' ').includes('all') || p.c.split(' ').includes(c));
+    const cc = c === 'ps' ? 'lev' : c;
+    const mine = list.filter((p) => p.c.split(' ').includes(cc));
+    pool = mine.length >= 3 ? mine : list.filter((p) => p.c.split(' ').includes('all') || p.c.split(' ').includes(cc));
   }
   return pool[dayNo(date) % pool.length];
 }

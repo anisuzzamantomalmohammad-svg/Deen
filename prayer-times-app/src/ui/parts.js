@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, Platform, View } from 'react-native';
-import Svg, { Path, Circle, Line, G, Rect, Ellipse, ClipPath, LinearGradient, Text as SvgText, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Circle, Line, G, Rect, Ellipse, ClipPath, LinearGradient, Text as SvgText, Defs, RadialGradient, Stop, SvgXml } from 'react-native-svg';
+import { LANDMARKS as LANDMARKS_A } from '../data/landmarks';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, useT, Serif, Body, Label, Press, IconBtn, Arabic, F, ThemeCtx } from './kit';
@@ -92,11 +93,12 @@ export function SkyBody({ cx, cy, r, sky, color, glow }) {
 // edge and completes at the next prayer. `timer`: 'inner' (a soft light along
 // the inside edge) or 'line' (thin line). `inside`: 'niche' (a dashed mihrab
 // line), 'lattice', 'glow' or 'plain'. Text inside gets the arch's own ink.
-export function Arch({ width, height, progress, cycleKey, children, onPress, sky, timer = 'inner', inside = 'niche' }) {
+export function Arch({ width, height, progress, cycleKey, children, onPress, sky, timer = 'inner', inside = 'niche', scene = 'day', occasion = null, culture = null }) {
   const th = useTheme();
   const geo = useMemo(() => archGeometry(width, height), [width, height]);
   const inner = useMemo(() => archGeometry(width - 16, height - 8), [width, height]);
   const { d, line, length } = geo;
+  const pts = useMemo(() => archPoints(geo, 240), [geo]);
   const p = useRef(new Animated.Value(progress)).current;
   const flash = useRef(new Animated.Value(0)).current;
   const lastKey = useRef(cycleKey);
@@ -148,24 +150,264 @@ export function Arch({ width, height, progress, cycleKey, children, onPress, sky
           {inside === 'glow' || inside === 'niche' ? <Rect x="0" y="0" width={width} height={height} fill="url(#archGlow)" /> : null}
           {inside === 'niche' ? <Path d={inner.line} transform="translate(8 8)" fill="none" stroke={archTheme.accent} strokeOpacity={0.55} strokeWidth={1} strokeDasharray="3 4" /> : null}
           {inside === 'lattice' ? <Lattice w={width} h={height} color={ink} /> : null}
+          {inside === 'scene' ? <InsideScene w={width} h={height} kind={scene} accent={archTheme.accent} ink={ink} fx={th.fx} /> : null}
         </G>
         <Path d={line} fill="none" stroke={rgbaHex(ink, 0.12)} strokeWidth={2.5} />
+        {timer === 'beads' ? <Beads pts={pts} n={33} p={progress} color={lineColor} idle={rgbaHex(ink, 0.18)} r={Math.max(2.2, width * 0.011)} /> : null}
+        {timer === 'crown' ? <Crown pts={pts} n={12} p={progress} color={lineColor} idle={rgbaHex(ink, 0.14)} w={Math.max(3.5, width * 0.02)} /> : null}
         {timer === 'inner' ? (
           <G clipPath="url(#archClip)">
             <AnimatedPath d={line} fill="none" stroke={lineColor} strokeOpacity={0.28} strokeWidth={16} strokeLinecap="round" strokeDasharray={`${length} ${length}`} strokeDashoffset={offset} />
           </G>
         ) : null}
-        <AnimatedPath d={line} fill="none" stroke={lineColor} strokeWidth={timer === 'inner' ? 3 : 2.5} strokeLinecap="round" strokeDasharray={`${length} ${length}`} strokeDashoffset={offset} />
+        {timer === 'beads' || timer === 'crown' ? null : <AnimatedPath d={line} fill="none" stroke={lineColor} strokeWidth={timer === 'inner' ? 3 : 2.5} strokeLinecap="round" strokeDasharray={`${length} ${length}`} strokeDashoffset={offset} />}
         <AnimatedPath d={line} fill="none" stroke="#FFFFFF" strokeWidth={6} opacity={flash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.6] })} />
         <Path d={`M${geo.cx - fr} ${geo.top - fr} h${fr * 2} v${fr * 2} h${-fr * 2} Z`} fill={lineColor} />
         <Path d={`M${geo.cx} ${geo.top - fr * 1.414} L${geo.cx + fr * 1.414} ${geo.top} L${geo.cx} ${geo.top + fr * 1.414} L${geo.cx - fr * 1.414} ${geo.top} Z`} fill={lineColor} />
       </Svg>
+      {inside !== 'plain' ? <ArchLife w={width} h={height} top={geo.sh} kind={scene} occasion={occasion} culture={culture} accent={archTheme.accent} ink={ink} fx={th.fx} /> : null}
+      {(timer === 'inner' || timer === 'line') && th.fx ? <TipPulse pts={pts} p={progress} color={lineColor} /> : null}
       <ThemeCtx.Provider value={archTheme}>
         <View style={{ position: 'absolute', left: 0, right: 0, top: width * 0.3, bottom: 0, alignItems: 'center' }}>{children}</View>
       </ThemeCtx.Provider>
     </View>
   );
   return onPress ? <Press onPress={onPress} scaleTo={0.985}>{content}</Press> : content;
+}
+
+
+// Evenly spaced points along the arch outline (bottom left → top → bottom right).
+function archPoints(geo, n) {
+  const { x0, x1, cx, top, sh } = geo;
+  const span = x1 - x0;
+  const c1y = top + span * 0.297;
+  const c2x = span * 0.225;
+  const c2y = top + span * 0.152;
+  const bottom = geo.d.match(/M[\d.]+ ([\d.]+)/) ? parseFloat(geo.d.match(/M[\d.]+ ([\d.]+)/)[1]) : sh + 100;
+  const raw = [];
+  for (let i = 0; i <= 20; i++) raw.push([x0, bottom - ((bottom - sh) * i) / 20]);
+  for (let i = 1; i <= 40; i++) { const s = i / 40; raw.push([cub(x0, x0, x0 + c2x, cx, s), cub(sh, c1y, c2y, top, s)]); }
+  for (let i = 1; i <= 40; i++) { const s = i / 40; raw.push([cub(cx, x1 - c2x, x1, x1, s), cub(top, c2y, c1y, sh, s)]); }
+  for (let i = 1; i <= 20; i++) raw.push([x1, sh + ((bottom - sh) * i) / 20]);
+  const acc = [0];
+  for (let i = 1; i < raw.length; i++) acc.push(acc[i - 1] + Math.hypot(raw[i][0] - raw[i - 1][0], raw[i][1] - raw[i - 1][1]));
+  const L = acc[acc.length - 1];
+  const out = [];
+  let j = 0;
+  for (let k = 0; k <= n; k++) {
+    const target = (L * k) / n;
+    while (j < acc.length - 2 && acc[j + 1] < target) j++;
+    const f = (target - acc[j]) / Math.max(0.0001, acc[j + 1] - acc[j]);
+    out.push([raw[j][0] + (raw[j + 1][0] - raw[j][0]) * f, raw[j][1] + (raw[j + 1][1] - raw[j][1]) * f]);
+  }
+  return out;
+}
+const at = (pts, f) => pts[Math.max(0, Math.min(pts.length - 1, Math.round(f * (pts.length - 1))))];
+function Beads({ pts, n, p, color, idle, r }) {
+  const lit = Math.floor(p * n + 0.0001);
+  return (
+    <G>
+      {Array.from({ length: n }, (_, i) => {
+        const [x, y] = at(pts, (i + 0.5) / n);
+        const on = i < lit;
+        const tip = i === lit;
+        return (
+          <G key={i}>
+            {tip ? <Circle cx={x} cy={y} r={r * 2.4} fill={color} opacity={0.25} /> : null}
+            <Circle cx={x} cy={y} r={tip ? r * 1.25 : r} fill={on || tip ? color : idle} />
+          </G>
+        );
+      })}
+    </G>
+  );
+}
+function Crown({ pts, n, p, color, idle, w }) {
+  return (
+    <G>
+      {Array.from({ length: n }, (_, i) => {
+        const a = i / n + 0.012;
+        const b = (i + 1) / n - 0.012;
+        const seg = [];
+        for (let k = 0; k <= 8; k++) seg.push(at(pts, a + ((b - a) * k) / 8));
+        const d = seg.map(([x, y], k) => `${k ? 'L' : 'M'}${x} ${y}`).join(' ');
+        const fill = Math.min(1, Math.max(0, (p - i / n) * n));
+        return (
+          <G key={i}>
+            <Path d={d} stroke={idle} strokeWidth={w} strokeLinecap="round" fill="none" />
+            {fill > 0 ? <Path d={d} stroke={color} strokeWidth={w} strokeLinecap="round" fill="none" opacity={0.35 + 0.65 * fill} /> : null}
+          </G>
+        );
+      })}
+    </G>
+  );
+}
+// A small scene of the day, low inside the arch: rays and palms by day,
+// dunes at sunset, stars and a shooting star at night.
+function InsideScene({ w, h, kind, accent, ink, fx }) {
+  const base = h - 6;
+  const palm = (x, s) => (
+    <G transform={`translate(${x} ${base}) scale(${s})`}>
+      <Path d="M0 0 Q2 -26 0 -46" stroke={accent} strokeOpacity={0.55} strokeWidth={3} fill="none" />
+      {[[-14, -6], [14, -6], [-12, 4], [12, 4], [-4, -12], [5, -12]].map(([dx, dy], i) => (
+        <Path key={i} d={`M0 -46 q${dx} ${dy} ${dx * 2} ${dy * 1.6}`} stroke={accent} strokeOpacity={0.5} strokeWidth={2.4} strokeLinecap="round" fill="none" />
+      ))}
+    </G>
+  );
+  if (kind === 'night') {
+    return (
+      <G>
+        {Array.from({ length: 18 }, (_, i) => <Circle key={i} cx={w * 0.12 + ((i * 53) % 76) / 100 * w} cy={h * 0.62 + ((i * 29) % 30) / 100 * h * 0.32} r={i % 4 ? 0.9 : 1.5} fill={accent} opacity={0.55} />)}
+        <Path d={`M${w * 0.62} ${h * 0.66} l${w * 0.12} ${-h * 0.03}`} stroke={accent} strokeOpacity={0.5} strokeWidth={1.4} strokeLinecap="round" />
+        <Path d={`M${w * 0.35} ${base} a${w * 0.15} ${w * 0.17} 0 0 1 ${w * 0.3} 0z`} fill={ink} opacity={0.08} />
+      </G>
+    );
+  }
+  if (kind === 'sunset') {
+    return (
+      <G>
+        <Path d={`M0 ${base - h * 0.06} Q${w * 0.3} ${base - h * 0.12} ${w * 0.55} ${base - h * 0.05} T${w} ${base - h * 0.08} V${h} H0Z`} fill={accent} opacity={0.18} />
+        <Path d={`M0 ${base - h * 0.02} Q${w * 0.4} ${base - h * 0.07} ${w} ${base - h * 0.02} V${h} H0Z`} fill={accent} opacity={0.22} />
+      </G>
+    );
+  }
+  return (
+    <G>
+      {Array.from({ length: 9 }, (_, i) => {
+        const a = Math.PI + (i / 8) * Math.PI;
+        return <Path key={i} d={`M${w / 2} ${base} L${w / 2 + Math.cos(a) * w * 0.6} ${base + Math.sin(a) * w * 0.6}`} stroke={accent} strokeOpacity={0.07} strokeWidth={10} />;
+      })}
+    </G>
+  );
+}
+
+
+// The moving scene inside the arch (1.9.1). It sits in the straight part of
+// the arch, low behind the text: palms sway by day, dunes drift at sunset,
+// stars twinkle and a shooting star crosses at night, water shimmers on the
+// White Days, lights rise in Ramadan, small fireworks on Eid, and the culture's
+// landmark faintly at the bottom.
+const ND2 = Platform.OS !== 'web';
+function useLoop(make, on, deps = []) {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!on) return undefined;
+    const a = make(v);
+    a.start();
+    return () => a.stop();
+  }, [on, ...deps]);
+  return v;
+}
+const loopT = (v, d, delay = 0) => Animated.loop(Animated.sequence([Animated.delay(delay), Animated.timing(v, { toValue: 1, duration: d, easing: Easing.linear, useNativeDriver: ND2 }), Animated.timing(v, { toValue: 0, duration: 0, useNativeDriver: ND2 })]));
+const swingT = (v, d) => Animated.loop(Animated.sequence([Animated.timing(v, { toValue: 1, duration: d, easing: Easing.inOut(Easing.sin), useNativeDriver: ND2 }), Animated.timing(v, { toValue: 0, duration: d, easing: Easing.inOut(Easing.sin), useNativeDriver: ND2 })]));
+
+function Palm({ x, bottom, s, color, fx, d }) {
+  const v = useLoop((a) => swingT(a, d), fx);
+  const H = 56 * s;
+  return (
+    <Animated.View style={{ position: 'absolute', left: x - 30 * s, bottom, width: 60 * s, height: H, transform: [{ translateY: H / 2 }, { rotate: v.interpolate({ inputRange: [0, 1], outputRange: ['-3deg', '3deg'] }) }, { translateY: -H / 2 }] }}>
+      <Svg width={60 * s} height={H} viewBox="-30 -56 60 56">
+        <Path d="M0 0 Q2 -26 0 -46" stroke={color} strokeOpacity={0.55} strokeWidth={3} fill="none" />
+        {[[-14, -6], [14, -6], [-12, 4], [12, 4], [-4, -12], [5, -12]].map(([dx, dy], i) => (
+          <Path key={i} d={`M0 -46 q${dx} ${dy} ${dx * 2} ${dy * 1.6}`} stroke={color} strokeOpacity={0.5} strokeWidth={2.4} strokeLinecap="round" fill="none" />
+        ))}
+      </Svg>
+    </Animated.View>
+  );
+}
+function Twinkle({ w, h, color, fx }) {
+  const v = useLoop((a) => swingT(a, 1300), fx);
+  const dots = (g) => Array.from({ length: 10 }, (_, i) => <Circle key={i} cx={((i * 53 + g * 23) % 92) / 100 * w + w * 0.04} cy={((i * 31 + g * 17) % 60) / 100 * h} r={i % 4 ? 0.9 : 1.5} fill={color} />);
+  return (
+    <>
+      <Animated.View style={{ position: 'absolute', left: 0, top: 0, opacity: fx ? v.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.9] }) : 0.6 }}><Svg width={w} height={h}>{dots(0)}</Svg></Animated.View>
+      <Animated.View style={{ position: 'absolute', left: 0, top: 0, opacity: fx ? v.interpolate({ inputRange: [0, 1], outputRange: [0.9, 0.25] }) : 0.6 }}><Svg width={w} height={h}>{dots(1)}</Svg></Animated.View>
+    </>
+  );
+}
+function Shooter({ w, h, color, fx }) {
+  const v = useLoop((a) => loopT(a, 1400, 3200), fx);
+  if (!fx) return null;
+  return (
+    <Animated.View style={{ position: 'absolute', left: w * 0.62, top: h * 0.12, opacity: v.interpolate({ inputRange: [0, 0.1, 0.8, 1], outputRange: [0, 1, 0.6, 0] }), transform: [{ translateX: v.interpolate({ inputRange: [0, 1], outputRange: [0, -w * 0.5] }) }, { translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, h * 0.3] }) }, { rotate: '-28deg' }] }}>
+      <Svg width={34} height={3}><Rect x={0} y={0.5} width={34} height={2} rx={1} fill={color} /></Svg>
+    </Animated.View>
+  );
+}
+function Riser2({ x, h, size, color, d, delay, fx, fall }) {
+  const v = useLoop((a) => loopT(a, d, delay), fx);
+  if (!fx) return null;
+  return (
+    <Animated.View style={{ position: 'absolute', left: x, top: fall ? -6 : h - 6, width: size, height: size, borderRadius: size / 2, backgroundColor: color,
+      opacity: v.interpolate({ inputRange: [0, 0.15, 0.8, 1], outputRange: [0, 1, 0.6, 0] }),
+      transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, fall ? h : -h * 0.85] }) }] }} />
+  );
+}
+function Burst({ x, y, r, color, delay, fx }) {
+  const v = useLoop((a) => loopT(a, 1800, delay), fx);
+  if (!fx) return null;
+  return (
+    <Animated.View style={{ position: 'absolute', left: x - r, top: y - r, opacity: v.interpolate({ inputRange: [0, 0.1, 0.7, 1], outputRange: [0, 1, 0.5, 0] }), transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1.1] }) }] }}>
+      <Svg width={r * 2} height={r * 2}>{Array.from({ length: 10 }, (_, i) => { const a = (i / 10) * Math.PI * 2; return <Circle key={i} cx={r + Math.cos(a) * r * 0.85} cy={r + Math.sin(a) * r * 0.85} r={1.6} fill={color} />; })}</Svg>
+    </Animated.View>
+  );
+}
+function Drift({ w, h, color, fx }) {
+  const v = useLoop((a) => swingT(a, 5000), fx);
+  return (
+    <Animated.View style={{ position: 'absolute', left: -30, bottom: 0, transform: [{ translateX: v.interpolate({ inputRange: [0, 1], outputRange: [0, 24] }) }] }}>
+      <Svg width={w + 60} height={h * 0.35}><Path d={`M0 ${h * 0.14} Q${w * 0.35} ${h * 0.02} ${w * 0.6} ${h * 0.12} T${w + 60} ${h * 0.08} V${h * 0.35} H0Z`} fill={color} opacity={0.2} /></Svg>
+    </Animated.View>
+  );
+}
+function Shimmer({ w, h, fx }) {
+  const v = useLoop((a) => swingT(a, 1300), fx);
+  return (
+    <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: h * 0.22, backgroundColor: 'rgba(138,176,216,0.18)' }}>
+      {Array.from({ length: 6 }, (_, i) => (
+        <Animated.View key={i} style={{ position: 'absolute', left: 10 + i * (w / 6.5), top: 6 + (i % 3) * 8, width: 16, height: 2, borderRadius: 1, backgroundColor: '#FFFFFF',
+          opacity: fx ? v.interpolate({ inputRange: [0, 1], outputRange: i % 2 ? [0.15, 0.8] : [0.8, 0.15] }) : 0.5,
+          transform: [{ translateX: fx ? v.interpolate({ inputRange: [0, 1], outputRange: [0, i % 2 ? 6 : -6] }) : 0 }] }} />
+      ))}
+    </View>
+  );
+}
+function ArchLife({ w, h, top, kind, occasion, culture, accent, ink, fx }) {
+  const iw = w - 16;
+  const ih = h - top - 6;
+  const land = culture && LANDMARKS_A[culture];
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', left: 8, top, width: iw, height: ih, overflow: 'hidden' }}>
+      {land ? (
+        <View style={{ position: 'absolute', left: 0, bottom: -2, opacity: 0.12 }}>
+          <SvgXml xml={`<svg viewBox="0 380 300 140">${land.replace(/fill="[^"]*"/g, `fill="${ink}"`)}</svg>`} width={iw} height={iw * (140 / 300)} />
+        </View>
+      ) : null}
+      {kind === 'night' || occasion === 'ramadan' || occasion === 'qadr' || occasion === 'eid' ? <Twinkle w={iw} h={ih * 0.7} color={accent} fx={fx} /> : null}
+      {kind === 'night' ? <Shooter w={iw} h={ih} color={accent} fx={fx} /> : null}
+      {kind === 'sunset' ? <Drift w={iw} h={ih} color={accent} fx={fx} /> : null}
+      {kind !== 'night' && !occasion ? (
+        <>
+          <Palm x={iw * 0.1} bottom={0} s={0.75 * (iw / 200)} color={accent} fx={fx} d={2200} />
+          <Palm x={iw * 0.9} bottom={0} s={0.6 * (iw / 200)} color={accent} fx={fx} d={2600} />
+        </>
+      ) : null}
+      {occasion === 'fullmoon' ? <Shimmer w={iw} h={ih} fx={fx} /> : null}
+      {occasion === 'ramadan' || occasion === 'qadr' ? Array.from({ length: 5 }, (_, i) => <Riser2 key={i} x={iw * (0.12 + i * 0.18)} h={ih} size={5} color="#FFD27A" d={4800} delay={i * 900} fx={fx} />) : null}
+      {occasion === 'eid' || occasion === 'chandraat' ? [[0.3, 0.35, 16, '#F2C230', 0], [0.7, 0.25, 18, '#E85A9A', 700], [0.5, 0.6, 14, '#7BE0FF', 1300]].map(([x, y, r, c, d], i) => <Burst key={i} x={iw * x} y={ih * y} r={r} color={c} delay={d} fx={fx} />) : null}
+    </View>
+  );
+}
+// The glowing tip at the end of the timer, pulsing as it travels.
+function TipPulse({ pts, p, color }) {
+  const v = useLoop((a) => swingT(a, 700), true);
+  const [x, y] = at(pts, Math.max(0, Math.min(1, p)));
+  if (p <= 0.005 || p >= 0.995) return null;
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', left: x - 12, top: y - 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={{ position: 'absolute', width: 24, height: 24, borderRadius: 12, backgroundColor: color, opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.12, 0.4] }), transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1.15] }) }] }} />
+      <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: '#FFF6DC', borderWidth: 2, borderColor: color }} />
+    </View>
+  );
 }
 
 function Lattice({ w, h, color }) {
@@ -235,6 +477,16 @@ export function TabBar({ active, onChange }) {
   useEffect(() => {
     Animated.spring(x, { toValue: idx, useNativeDriver: Platform.OS !== 'web', speed: 20, bounciness: 5 }).start();
   }, [idx]);
+  const glow = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!th.fx) return undefined;
+    const a = Animated.loop(Animated.sequence([
+      Animated.timing(glow, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(glow, { toValue: 0, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+    ]));
+    a.start();
+    return () => a.stop();
+  }, [th.fx]);
   const seg = w / TABS.length;
   const onInk = th.isLight ? th.cardInk : th.bg;
   return (
@@ -264,9 +516,12 @@ export function TabBar({ active, onChange }) {
           <Animated.View
             style={{
               position: 'absolute', left: 5, width: seg - 10, height: 50, top: 6, borderRadius: 25, backgroundColor: th.accent,
+              shadowColor: th.accent, shadowOpacity: th.fx ? 0.55 : 0, shadowRadius: 12, shadowOffset: { width: 0, height: 0 },
               transform: [{ translateX: x.interpolate({ inputRange: [0, 1], outputRange: [0, seg] }) }],
             }}
-          />
+          >
+            {th.fx ? <Animated.View style={{ position: 'absolute', left: -4, right: -4, top: -4, bottom: -4, borderRadius: 29, backgroundColor: th.accent, opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0, 0.35] }) }} /> : null}
+          </Animated.View>
         )}
         {TABS.map((tab) => {
           const on = tab.id === active;

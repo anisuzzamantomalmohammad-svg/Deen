@@ -35,7 +35,7 @@ export function FastPic({ pic, size = 84, light, still }) {
 }
 
 // countdown: text like "1h 49m"; at: the Iftar or Seheri time as text.
-export function FastCard({ pic, night, countdown, at, progress = 0, big, onPress, style, sub }) {
+export function FastCard({ pic, night, countdown, at, progress = 0, big, onPress, style, sub, action }) {
   const th = useTheme();
   const t = useT();
   const L = th.isLight;
@@ -57,6 +57,11 @@ export function FastCard({ pic, night, countdown, at, progress = 0, big, onPress
           <Label size={8.5} color={night ? nightC : th.accent}>{night ? t('Seheri ends in') : t('Iftar in')}</Label>
           <Serif bold size={big ? 30 : 26} numberOfLines={1} style={{ lineHeight: big ? 36 : 31 }}>{countdown}</Serif>
           {sub ? <Body size={10.5} color={th.muted} numberOfLines={1}>{sub}</Body> : null}
+          {action ? (
+            <Press onPress={action.onPress} hitSlop={6} style={{ alignSelf: 'flex-start', marginTop: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99, borderWidth: 1, borderColor: night ? nightC : th.accent }}>
+              <Body size={10.5} weight="semi" color={night ? nightC : th.accent}>{action.label}</Body>
+            </Press>
+          ) : null}
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <Label size={8.5}>{night ? t('Seheri') : t('Iftar')}</Label>

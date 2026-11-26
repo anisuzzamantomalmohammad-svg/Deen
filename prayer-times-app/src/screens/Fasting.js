@@ -4,7 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { useApp } from '../state/store';
 import { useNav } from '../nav';
 import { useSwipe } from '../ui/swipe';
-import { useTheme, useT, Serif, Body, Label, Card, Press, Arabic, Segmented, Toggle, Row, SectionLabel, PatternBand, IconBtn, FadeSwitch } from '../ui/kit';
+import { useTheme, useT, Serif, Body, Label, Card, Press, Arabic, Segmented, Toggle, Row, SectionLabel, Chip, PatternBand, IconBtn, FadeSwitch } from '../ui/kit';
 import { SunArc, MoonPhase, ScreenTitle } from '../ui/parts';
 import { useNow, useLayout, timeStr, shortDate, countdownText, hijriLabel, longDate, WEEK_LETTERS } from '../ui/hooks';
 import { addDays, addMinutes, sameDay } from '../lib/prayer';
@@ -13,6 +13,7 @@ import { fastingWindow, isFastDate } from './Home';
 import { FastCard } from '../ui/fastCard';
 import { pickFastPic } from '../lib/fastPics';
 import { FastingSky } from '../ui/fastSky';
+import { BigRing } from '../ui/rings';
 import { DUAS } from '../data/duas';
 import { duaText } from '../data/duaText';
 import { RamadanFastGrid, BeforeEidChecklist, MissedFastsCard, ShawwalCard, RamadanSummaryCard, ReasonChips, isMissedFast, notFastingPatch, fastingPatch } from './FastingParts';
@@ -206,6 +207,10 @@ function WeekView() {
   const sunnahDays = week.filter(isSunnah).length;
   const keptSunnah = week.filter((d) => isSunnah(d) && app.data.journalByDay[d.toDateString()]?.fasted).length;
   const rows = Array.from({ length: 7 }, (_, i) => addDays(today, i - 1));
+  const yearKept = useMemo(() => Object.keys(app.data.journalByDay || {}).filter((k) => {
+    const d = new Date(k);
+    return app.data.journalByDay[k] && app.data.journalByDay[k].fasted && d.getFullYear() === today.getFullYear() && d <= today && app.hijri(d).monthIndex !== 8;
+  }).length, [app.data.journalByDay, today]);
   const nextSunnah = useMemo(() => {
     const out = [];
     for (let i = 1; i < 60 && out.length < 4; i++) {
@@ -291,19 +296,44 @@ function WeekView() {
       </Card>
       <Body size={11} color={th.faint} style={{ marginTop: 6 }}>{t('Seheri ends {n} minutes before Fajr (change it in Settings).', { n: buf })}</Body>
 
-      <SectionLabel>{t('Next Sunnah fasts')}</SectionLabel>
+      <SectionLabel>{t('Sunnah fasts')}</SectionLabel>
       <Card style={{ paddingVertical: 2 }}>
-        {nextSunnah.map((n, i) => (
-          <Row
-            key={i}
-            first={i === 0}
-            label={reasonTitle(n.reason)}
-            sub={n.end > n.date ? `${shortDate(t.lang, n.date)} – ${shortDate(t.lang, n.end)}` : shortDate(t.lang, n.date)}
-            onPress={() => nav.openSheet('sunnahFast', { reason: n.reason, date: n.date })}
-            icon={n.reason === 'white' ? 'circle' : 'sunrise'}
-            iconColor={dotColor(n.reason)}
-          />
-        ))}
+        {nextSunnah.map((n, i) => {
+          const key = n.date.toDateString();
+          const planned = !!(app.data.fastPlans || {})[key];
+          return (
+            <View key={i}>
+              {i > 0 ? <View style={{ height: 1, backgroundColor: th.line, marginHorizontal: 14 }} /> : null}
+              <Press onPress={() => nav.openSheet('sunnahFast', { reason: n.reason, date: n.date })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 14 }}>
+                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: th.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+                  <Feather name={n.reason === 'white' ? 'moon' : 'calendar'} size={14} color={dotColor(n.reason)} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Body size={14} weight="semi">{reasonTitle(n.reason)}</Body>
+                  <Body size={11.5} color={th.muted}>{n.end > n.date ? `${shortDate(t.lang, n.date)} – ${shortDate(t.lang, n.end)}` : shortDate(t.lang, n.date)}</Body>
+                </View>
+                <Chip label={planned ? t('Planned') : t('Plan it')} active={planned} style={{ marginRight: 0 }} onPress={() => {
+                  app.update((pp) => ({ fastPlans: { ...(pp.fastPlans || {}), [key]: !planned } }));
+                  app.setToast(planned ? t('Plan removed') : t('Planned. You’ll get a reminder the night before.'));
+                }} />
+              </Press>
+            </View>
+          );
+        })}
+      </Card>
+
+      <Card style={{ marginTop: 10, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <BigRing size={60} w={5} segs={[[Math.min(1, yearKept / Math.max(12, yearKept + 4)), th.ok, true]]}>
+          <Serif size={16}>{t.num(yearKept)}</Serif>
+        </BigRing>
+        <View style={{ flex: 1 }}>
+          <Label>{t('This year')}</Label>
+          <Body size={14} weight="semi">{t('{n} fasts kept', { n: t.num(yearKept) })}</Body>
+          <Body size={11.5} color={th.muted}>{t('Outside Ramadan, since 1 January')}</Body>
+        </View>
+      </Card>
+      <Card style={{ marginTop: 10, paddingVertical: 2 }}>
+        <Row first icon="bell" label={t('Remind me the night before')} sub={t('After Isha, on days you plan to fast')} right={<Toggle value={app.data.fastingAlerts !== false} onChange={(v) => app.update({ fastingAlerts: v })} />} />
       </Card>
     </View>
   );
